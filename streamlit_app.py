@@ -6,77 +6,70 @@ from PIL import Image, ImageOps
 import pypdf
 
 # --- CONFIGURAZIONE ---
-st.set_page_config(page_title="Global Career Coach", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="Career Coach", page_icon="🚀", layout="wide")
 
 # --- CSS ---
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# --- INTERFACCIA LINGUA ---
+# --- LOGIN ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2038/2038022.png", width=50)
     st.title("Career Coach")
-    lang = st.selectbox("Lingua / Language", ["Italiano", "English", "Deutsch", "Español", "Português"])
-    
+    lang = st.selectbox("Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
     st.divider()
-    
-    # --- LOGIN ---
-    st.markdown("### 🔑 Login")
-    api_key = st.text_input("Incolla qui la tua API Key", type="password")
-    
-    if not api_key:
-        st.warning("⬅️ Incolla la chiave per iniziare.")
-        st.stop()
+    api_key = st.text_input("🔑 API Key (Usa quella GRATIS di AI Studio)", type="password")
 
-    try:
-        genai.configure(api_key=api_key)
-    except Exception as e:
-        st.error(f"Chiave non valida: {e}")
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+        except:
+            pass
 
-# --- FUNZIONE AI (GEMINI 1.5 PRO - IL TOP DI GAMMA) ---
+# --- FUNZIONE AI (USO IL MODELLO CLASSICO - MASSIMA COMPATIBILITÀ) ---
 def get_ai(prompt):
     try:
-        # Ora che abbiamo aggiornato requirements.txt, QUESTO FUNZIONA!
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        # 'gemini-pro' è il modello standard. Funziona sempre.
+        model = genai.GenerativeModel('gemini-pro') 
         return model.generate_content(prompt).text
     except Exception as e:
-        return f"ERRORE AI: {str(e)}"
+        return f"ERRORE: {str(e)}"
 
 # --- TRADUZIONI ---
 trans = {
-    "Italiano": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Genera", "up":"Carica PDF", "dl":"Scarica"},
-    "English": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Photo", "gen":"Generate", "up":"Upload PDF", "dl":"Download"},
-    "Deutsch": {"nav":"Menü", "home":"🏠 Start", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Erstellen", "up":"PDF Laden", "dl":"Laden"},
-    "Español": {"nav":"Menú", "home":"🏠 Inicio", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generar", "up":"Subir PDF", "dl":"Descargar"},
-    "Português": {"nav":"Menu", "home":"🏠 Início", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Gerar", "up":"Enviar PDF", "dl":"Baixar"}
+    "Italiano": {"home":"🏠 Home", "cv":"📄 CV", "up":"Carica PDF", "gen":"Genera", "dl":"Scarica"},
+    "English": {"home":"🏠 Home", "cv":"📄 CV", "up":"Upload PDF", "gen":"Generate", "dl":"Download"},
+    "Deutsch": {"home":"🏠 Start", "cv":"📄 CV", "up":"PDF Laden", "gen":"Erstellen", "dl":"Laden"},
+    "Español": {"home":"🏠 Inicio", "cv":"📄 CV", "up":"Subir PDF", "gen":"Generar", "dl":"Descargar"},
+    "Português": {"home":"🏠 Início", "cv":"📄 CV", "up":"Enviar PDF", "gen":"Gerar", "dl":"Baixar"}
 }
 t = trans[lang]
 
 # --- NAVIGAZIONE ---
-page = st.sidebar.radio(t["nav"], [t["home"], t["cv"], t["foto"]])
+page = st.sidebar.radio("Menu", [t["home"], t["cv"]])
 
-# --- PAGINA HOME ---
 if page == t["home"]:
     st.title("Global Career Coach 🚀")
-    st.write("Il tuo assistente professionale AI (Powered by Gemini 1.5 Pro).")
-    st.success("✅ Sistema Online.")
+    st.info("Sistema pronto. Usa la chiave gratuita di AI Studio per la massima compatibilità.")
 
-# --- PAGINA CV ---
 elif page == t["cv"]:
     st.header(t["cv"])
-    uploaded_file = st.file_uploader(t["up"], type=["pdf"])
-    
-    if uploaded_file and st.button(t["gen"]):
+    if not api_key:
+        st.warning("⬅️ Inserisci la chiave API a sinistra.")
+        st.stop()
+        
+    f = st.file_uploader(t["up"], type=["pdf"])
+    if f and st.button(t["gen"]):
         try:
-            reader = pypdf.PdfReader(uploaded_file)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text()
+            reader = pypdf.PdfReader(f)
+            txt = ""
+            for p in reader.pages: txt += p.extract_text()
             
-            with st.spinner("Gemini 1.5 Pro sta lavorando..."):
-                res = get_ai(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
+            with st.spinner("Elaborazione in corso..."):
+                # Chiamo l'AI
+                res = get_ai(f"Riscrivi questo CV in modo professionale in {lang}:\n{txt}")
                 
                 if "ERRORE" in res:
                     st.error(res)
+                    st.error("Consiglio: Usa la chiave 'AI Studio' (quella che inizia con AIza). Le chiavi Cloud Enterprise spesso bloccano questo modello.")
                 else:
                     doc = Document()
                     doc.add_heading('Curriculum Vitae', 0)
@@ -84,22 +77,7 @@ elif page == t["cv"]:
                         if line.strip(): doc.add_paragraph(line)
                     bio = io.BytesIO()
                     doc.save(bio)
-                    
                     st.success("Fatto!")
                     st.download_button(t["dl"], bio.getvalue(), "CV.docx")
-                
         except Exception as e:
-            st.error(f"Errore: {e}")
-
-# --- PAGINA FOTO ---
-elif page == t["foto"]:
-    st.header(t["foto"])
-    img = st.file_uploader("Upload", type=["jpg", "png"])
-    if img:
-        b = st.slider("Bordo", 0, 50, 10)
-        i = Image.open(img)
-        ni = ImageOps.expand(i, border=b, fill='white')
-        st.image(ni, width=300)
-        buf = io.BytesIO()
-        ni.save(buf, format="JPEG")
-        st.download_button("Scarica", buf.getvalue(), "foto.jpg", "image/jpeg")
+            st.error(f"Errore tecnico: {e}")
