@@ -6,74 +6,92 @@ from PIL import Image, ImageOps
 import pypdf
 
 # --- CONFIGURAZIONE ---
-st.set_page_config(page_title="Career Coach", page_icon="🚀")
+st.set_page_config(page_title="Career Coach", layout="wide")
 
-# --- CSS ---
-st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
+# --- GESTIONE CHIAVE ---
+# Proviamo a recuperarla dai secrets, se no la chiediamo a mano
+api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# --- SIDEBAR & LOGIN ---
 with st.sidebar:
-    st.title("🚀 Career Coach")
-    lang = st.selectbox("Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
-    st.divider()
-    st.markdown("### 🔑 Login")
-    # Chiediamo la chiave qui per evitare problemi con i Secrets bloccati
-    api_key = st.text_input("Incolla API Key (AI Studio)", type="password")
+    st.title("Configurazione")
+    # Se la chiave non c'è nei secrets, mostriamo il campo
+    if not api_key:
+        api_key = st.text_input("Inserisci API Key", type="password")
 
-# --- CONFIGURAZIONE AI ---
 if api_key:
     try:
         genai.configure(api_key=api_key)
-    except:
-        st.error("Formato chiave non valido.")
-
-def get_ai(prompt):
-    if not api_key: return "ERRORE: Manca la chiave."
-    try:
-        # Usiamo FLASH: è il più compatibile con le chiavi AI Studio
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        return model.generate_content(prompt).text
     except Exception as e:
-        return f"ERRORE TECNICO: {str(e)}"
+        st.error(f"Errore Key: {e}")
+
+# --- FUNZIONE UNIVERSALE (GEMINI PRO CLASSICO) ---
+def get_gemini_response(prompt):
+    try:
+        # USIAMO IL MODELLO CLASSICO, QUELLO CHE NON FALLISCE MAI
+        # Se questo non va, nulla andrà.
+        model = genai.GenerativeModel('gemini-pro') 
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"ERRORE: {str(e)}"
+
+# --- TRADUZIONI ---
+translations = {
+    "Italiano": {"title": "Riformatta CV", "up": "Carica PDF", "btn": "Genera", "dl": "Scarica Word"},
+    "English": {"title": "Reformat CV", "up": "Upload PDF", "btn": "Generate", "dl": "Download Word"},
+    "Deutsch": {"title": "Lebenslauf", "up": "PDF hochladen", "btn": "Erstellen", "dl": "Word laden"},
+    "Español": {"title": "Reformatear CV", "up": "Subir PDF", "btn": "Generar", "dl": "Descargar Word"},
+    "Português": {"title": "Reformatar CV", "up": "Enviar PDF", "btn": "Gerar", "dl": "Baixar Word"}
+}
 
 # --- INTERFACCIA ---
-st.title("Assistente Carriera AI")
+lang = st.sidebar.selectbox("Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
+t = translations[lang]
 
-t_up = "Carica CV (PDF)"
-t_gen = "Genera CV Word"
+st.title("Global Career Coach 🚀")
 
-uploaded_file = st.file_uploader(t_up, type=["pdf"])
+# SEZIONE CV (Semplificata per testare)
+st.header(t["title"])
 
-if uploaded_file and st.button(t_gen):
-    if not api_key:
-        st.warning("⚠️ Incolla la Chiave API nel menu a sinistra prima di cliccare!")
-        st.stop()
-        
+if not api_key:
+    st.warning("Inserisci la chiave API nella barra laterale per iniziare.")
+    st.stop()
+
+uploaded_file = st.file_uploader(t["up"], type=["pdf"])
+
+if uploaded_file and st.button(t["btn"]):
+    # Lettura PDF
     try:
-        # 1. Leggi PDF
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
-        for p in reader.pages: text += p.extract_text()
+        for page in reader.pages:
+            text += page.extract_text()
+    except:
+        st.error("Errore nella lettura del PDF.")
+        st.stop()
+
+    with st.spinner("L'AI sta scrivendo... (Modello Standard)"):
+        # Chiamata AI
+        response_text = get_gemini_response(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
         
-        # 2. Chiama AI
-        with st.spinner("L'AI sta lavorando..."):
-            prompt_text = f"Sei un esperto HR. Riscrivi questo CV in {lang} in modo professionale e action-oriented:\n{text}"
-            res = get_ai(prompt_text)
+        if "ERRORE" in response_text:
+            st.error(response_text)
+            st.info("Se vedi 404, la tua chiave non ha accesso nemmeno al modello base.")
+        else:
+            # Creazione Word
+            doc = Document()
+            doc.add_heading('Curriculum Vitae', 0)
+            for line in response_text.split('\n'):
+                if line.strip():
+                    doc.add_paragraph(line)
             
-            if "ERRORE" in res:
-                st.error(res)
-                st.info("💡 Suggerimento: Usa una chiave GRATUITA presa da aistudio.google.com. Le chiavi Cloud Enterprise non funzionano con questo codice.")
-            else:
-                # 3. Crea Word
-                doc = Document()
-                doc.add_heading('Curriculum Vitae', 0)
-                for line in res.split('\n'):
-                    if line.strip(): doc.add_paragraph(line)
-                bio = io.BytesIO()
-                doc.save(bio)
-                
-                st.success("Fatto!")
-                st.download_button("Scarica CV.docx", bio.getvalue(), "CV_Pro.docx")
-                
-    except Exception as e:
-        st.error(f"Errore imprevisto: {e}")
+            bio = io.BytesIO()
+            doc.save(bio)
+            
+            st.success("Fatto!")
+            st.download_button(
+                label=t["dl"],
+                data=bio.getvalue(),
+                file_name="CV_Optimized.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
