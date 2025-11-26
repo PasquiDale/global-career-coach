@@ -227,16 +227,16 @@ with st.sidebar:
         t["menu_sim"], t["menu_qa"]
     ], label_visibility="collapsed")
 
-# --- FUNZIONI UTILI (CORRETTE) ---
+# --- FUNZIONI UTILI ---
 def get_gemini_response(prompt):
-    # QUI ERA L'ERRORE: Ho messo 'gemini-1.5-pro' che è stabile
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # USO IL MODELLO FLASH (PIÙ STABILE E VELOCE)
+    model = genai.GenerativeModel('gemini-1.5-flash')
     response = model.generate_content(prompt)
     return response.text
 
 def get_gemini_search(query, language_ctx):
-    # ANCHE QUI CORRETTO
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # USO IL MODELLO FLASH (PIÙ STABILE E VELOCE)
+    model = genai.GenerativeModel('gemini-1.5-flash')
     tools = [{'google_search': {}}]
     final_prompt = f"{language_ctx} Query: {query}"
     response = model.generate_content(final_prompt, tools=tools)
