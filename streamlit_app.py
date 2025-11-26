@@ -15,16 +15,16 @@ st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2038/2038022.png", width=50)
     st.title("Career Coach")
-    lang = st.selectbox("Lingua / Language", ["Italiano", "English", "Deutsch", "Espagnol", "Português"])
+    lang = st.selectbox("Lingua / Language", ["Italiano", "English", "Deutsch", "Español", "Português"])
     
     st.divider()
     
-    # --- INSERIMENTO CHIAVE MANUALE ---
+    # --- LOGIN ---
     st.markdown("### 🔑 Login")
     api_key = st.text_input("Incolla qui la tua API Key (AI Studio)", type="password")
     
     if not api_key:
-        st.warning("⬅️ Incolla la chiave qui sopra per iniziare.")
+        st.warning("⬅️ Incolla la chiave per iniziare.")
         st.stop()
 
     try:
@@ -32,21 +32,21 @@ with st.sidebar:
     except Exception as e:
         st.error(f"Chiave non valida: {e}")
 
-# --- FUNZIONE AI (GEMINI PRO CLASSICO) ---
+# --- FUNZIONE AI (GEMINI 1.5 FLASH) ---
 def get_ai(prompt):
     try:
-        # USO GEMINI PRO STANDARD (Massima compatibilità)
-        model = genai.GenerativeModel('gemini-pro')
+        # Con la libreria aggiornata, questo DEVE funzionare
+        model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content(prompt).text
     except Exception as e:
-        return f"ERRORE AI: {str(e)}"
+        return f"ERRORE: {str(e)}"
 
-# --- DIZIONARIO TRADUZIONI ---
+# --- TRADUZIONI ---
 trans = {
     "Italiano": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Genera", "up":"Carica PDF", "dl":"Scarica"},
-    "English": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generate", "up":"Upload PDF", "dl":"Download"},
+    "English": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Photo", "gen":"Generate", "up":"Upload PDF", "dl":"Download"},
     "Deutsch": {"nav":"Menü", "home":"🏠 Start", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Erstellen", "up":"PDF Laden", "dl":"Laden"},
-    "Espagnol": {"nav":"Menú", "home":"🏠 Inicio", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generar", "up":"Subir PDF", "dl":"Descargar"},
+    "Español": {"nav":"Menú", "home":"🏠 Inicio", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generar", "up":"Subir PDF", "dl":"Descargar"},
     "Português": {"nav":"Menu", "home":"🏠 Início", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Gerar", "up":"Enviar PDF", "dl":"Baixar"}
 }
 t = trans[lang]
@@ -58,7 +58,7 @@ page = st.sidebar.radio(t["nav"], [t["home"], t["cv"], t["foto"]])
 if page == t["home"]:
     st.title("Global Career Coach 🚀")
     st.write("Il tuo assistente professionale AI.")
-    st.success("✅ Sistema Online. Seleziona una funzione dal menu a sinistra.")
+    st.success("✅ Sistema Online.")
 
 # --- PAGINA CV ---
 elif page == t["cv"]:
@@ -72,10 +72,9 @@ elif page == t["cv"]:
             for page in reader.pages:
                 text += page.extract_text()
             
-            with st.spinner("Generazione in corso... (Modello Standard)"):
+            with st.spinner("L'AI sta lavorando..."):
                 res = get_ai(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
                 
-                # Controllo errore prima di creare il file
                 if "ERRORE" in res:
                     st.error(res)
                 else:
