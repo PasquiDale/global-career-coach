@@ -25,10 +25,8 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # --- GESTIONE API KEY ---
-# Cerca la chiave nei "Secrets" di Streamlit, altrimenti usa una stringa vuota
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Se la chiave non è nei secrets, chiedila nella sidebar (utile per test)
 if not api_key:
     api_key = st.sidebar.text_input("API Key (Access Code)", type="password")
 
@@ -217,38 +215,29 @@ translations = {
     }
 }
 
-# --- SIDEBAR (Lingua e Navigazione) ---
+# --- SIDEBAR ---
 with st.sidebar:
-    # Selezione Lingua
     lang_code = st.selectbox("🌐 Language / Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
-    t = translations[lang_code] # Carica il dizionario della lingua scelta
-
+    t = translations[lang_code]
     st.divider()
     st.header(t["nav_title"])
-    
-    # Menu di navigazione
     page = st.radio("Go to", [
-        t["menu_home"], 
-        t["menu_cv"], 
-        t["menu_photo"], 
-        t["menu_letter"], 
-        t["menu_match"], 
-        t["menu_search"], 
-        t["menu_sim"], 
-        t["menu_qa"]
+        t["menu_home"], t["menu_cv"], t["menu_photo"], 
+        t["menu_letter"], t["menu_match"], t["menu_search"], 
+        t["menu_sim"], t["menu_qa"]
     ], label_visibility="collapsed")
 
-# --- FUNZIONI UTILI ---
+# --- FUNZIONI UTILI (CORRETTE) ---
 def get_gemini_response(prompt):
-    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    # QUI ERA L'ERRORE: Ho messo 'gemini-1.5-pro' che è stabile
+    model = genai.GenerativeModel('gemini-1.5-pro')
     response = model.generate_content(prompt)
     return response.text
 
 def get_gemini_search(query, language_ctx):
-    # Usa Google Search Grounding
-    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    # ANCHE QUI CORRETTO
+    model = genai.GenerativeModel('gemini-1.5-pro')
     tools = [{'google_search': {}}]
-    # Aggiungi il contesto lingua alla ricerca
     final_prompt = f"{language_ctx} Query: {query}"
     response = model.generate_content(final_prompt, tools=tools)
     return response.text
@@ -260,7 +249,6 @@ if page == t["menu_home"]:
     st.title(t["welcome_title"])
     st.write(t["welcome_text"])
     st.divider()
-    # Mostra i servizi come card eleganti
     col1, col2 = st.columns(2)
     with col1:
         st.info(f"**{t['menu_cv']}**\n\nProfessional redesign.")
@@ -284,11 +272,9 @@ elif page == t["menu_cv"]:
             
         if st.button(t["generate_btn"]):
             with st.spinner(t["processing"]):
-                # 1. Analisi e Rcrittura
                 prompt = f"Act as a professional CV Writer. Rewrite this CV in {lang_code} language. Make it action-oriented, professional and clean. \n\nCV TEXT:\n{text}"
                 improved_text = get_gemini_response(prompt)
                 
-                # 2. Creazione Word
                 doc = Document()
                 style = doc.styles['Normal']
                 font = style.font
@@ -297,15 +283,13 @@ elif page == t["menu_cv"]:
                 
                 doc.add_heading('CURRICULUM VITAE', 0)
                 
-                # Semplice parser per dividere il testo generato in paragrafi
                 for line in improved_text.split('\n'):
                     if line.strip():
-                        if line.isupper() or len(line) < 40 and ":" not in line: # Identifica possibili titoli
+                        if line.isupper() or len(line) < 40 and ":" not in line:
                             p = doc.add_heading(line, level=1)
                         else:
                             p = doc.add_paragraph(line)
                 
-                # Salva in memoria
                 bio = io.BytesIO()
                 doc.save(bio)
                 
@@ -325,13 +309,9 @@ elif page == t["menu_photo"]:
     if uploaded_img:
         border = st.slider(t["border_size"], 0, 50, 15)
         image = Image.open(uploaded_img)
-        
-        # Aggiungi bordo
         img_with_border = ImageOps.expand(image, border=border, fill='white')
-        
         st.image(img_with_border, caption="Preview", use_column_width=False, width=300)
         
-        # Converti per download
         buf = io.BytesIO()
         img_with_border.save(buf, format="JPEG")
         byte_im = buf.getvalue()
