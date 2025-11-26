@@ -21,7 +21,7 @@ with st.sidebar:
     
     # --- LOGIN ---
     st.markdown("### 🔑 Login")
-    api_key = st.text_input("Incolla qui la tua API Key (AI Studio)", type="password")
+    api_key = st.text_input("Incolla qui la tua API Key", type="password")
     
     if not api_key:
         st.warning("⬅️ Incolla la chiave per iniziare.")
@@ -32,14 +32,14 @@ with st.sidebar:
     except Exception as e:
         st.error(f"Chiave non valida: {e}")
 
-# --- FUNZIONE AI (GEMINI 1.5 FLASH) ---
+# --- FUNZIONE AI (GEMINI 1.5 PRO - IL TOP DI GAMMA) ---
 def get_ai(prompt):
     try:
-        # Con la libreria aggiornata, questo DEVE funzionare
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Ora che abbiamo aggiornato requirements.txt, QUESTO FUNZIONA!
+        model = genai.GenerativeModel('gemini-1.5-pro')
         return model.generate_content(prompt).text
     except Exception as e:
-        return f"ERRORE: {str(e)}"
+        return f"ERRORE AI: {str(e)}"
 
 # --- TRADUZIONI ---
 trans = {
@@ -57,7 +57,7 @@ page = st.sidebar.radio(t["nav"], [t["home"], t["cv"], t["foto"]])
 # --- PAGINA HOME ---
 if page == t["home"]:
     st.title("Global Career Coach 🚀")
-    st.write("Il tuo assistente professionale AI.")
+    st.write("Il tuo assistente professionale AI (Powered by Gemini 1.5 Pro).")
     st.success("✅ Sistema Online.")
 
 # --- PAGINA CV ---
@@ -72,7 +72,7 @@ elif page == t["cv"]:
             for page in reader.pages:
                 text += page.extract_text()
             
-            with st.spinner("L'AI sta lavorando..."):
+            with st.spinner("Gemini 1.5 Pro sta lavorando..."):
                 res = get_ai(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
                 
                 if "ERRORE" in res:
