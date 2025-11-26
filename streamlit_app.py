@@ -19,25 +19,24 @@ with st.sidebar:
     
     st.divider()
     
-    # --- INSERIMENTO CHIAVE MANUALE (Per bypassare errori) ---
+    # --- INSERIMENTO CHIAVE MANUALE ---
     st.markdown("### 🔑 Login")
-    api_key = st.text_input("Incolla qui la tua API Key (AI Studio)", type="password", help="La chiave che inizia con AIza...")
+    api_key = st.text_input("Incolla qui la tua API Key (AI Studio)", type="password")
     
     if not api_key:
         st.warning("⬅️ Incolla la chiave qui sopra per iniziare.")
-        st.stop() # Blocca tutto se non c'è la chiave
+        st.stop()
 
-    # Configurazione immediata
     try:
         genai.configure(api_key=api_key)
     except Exception as e:
         st.error(f"Chiave non valida: {e}")
 
-# --- FUNZIONE AI (GEMINI 1.5 FLASH) ---
+# --- FUNZIONE AI (GEMINI PRO CLASSICO) ---
 def get_ai(prompt):
     try:
-        # Usiamo Flash che è veloce e sicuro
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # USO GEMINI PRO STANDARD (Massima compatibilità)
+        model = genai.GenerativeModel('gemini-pro')
         return model.generate_content(prompt).text
     except Exception as e:
         return f"ERRORE AI: {str(e)}"
@@ -45,7 +44,7 @@ def get_ai(prompt):
 # --- DIZIONARIO TRADUZIONI ---
 trans = {
     "Italiano": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Genera", "up":"Carica PDF", "dl":"Scarica"},
-    "English": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Photo", "gen":"Generate", "up":"Upload PDF", "dl":"Download"},
+    "English": {"nav":"Menu", "home":"🏠 Home", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generate", "up":"Upload PDF", "dl":"Download"},
     "Deutsch": {"nav":"Menü", "home":"🏠 Start", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Erstellen", "up":"PDF Laden", "dl":"Laden"},
     "Espagnol": {"nav":"Menú", "home":"🏠 Inicio", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Generar", "up":"Subir PDF", "dl":"Descargar"},
     "Português": {"nav":"Menu", "home":"🏠 Início", "cv":"📄 CV", "foto":"📸 Foto", "gen":"Gerar", "up":"Enviar PDF", "dl":"Baixar"}
@@ -73,19 +72,22 @@ elif page == t["cv"]:
             for page in reader.pages:
                 text += page.extract_text()
             
-            with st.spinner("L'AI sta lavorando..."):
+            with st.spinner("Generazione in corso... (Modello Standard)"):
                 res = get_ai(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
                 
-                # Creazione Word
-                doc = Document()
-                doc.add_heading('Curriculum Vitae', 0)
-                for line in res.split('\n'):
-                    if line.strip(): doc.add_paragraph(line)
-                bio = io.BytesIO()
-                doc.save(bio)
-                
-                st.success("Fatto!")
-                st.download_button(t["dl"], bio.getvalue(), "CV.docx")
+                # Controllo errore prima di creare il file
+                if "ERRORE" in res:
+                    st.error(res)
+                else:
+                    doc = Document()
+                    doc.add_heading('Curriculum Vitae', 0)
+                    for line in res.split('\n'):
+                        if line.strip(): doc.add_paragraph(line)
+                    bio = io.BytesIO()
+                    doc.save(bio)
+                    
+                    st.success("Fatto!")
+                    st.download_button(t["dl"], bio.getvalue(), "CV.docx")
                 
         except Exception as e:
             st.error(f"Errore: {e}")
@@ -99,3 +101,6 @@ elif page == t["foto"]:
         i = Image.open(img)
         ni = ImageOps.expand(i, border=b, fill='white')
         st.image(ni, width=300)
+        buf = io.BytesIO()
+        ni.save(buf, format="JPEG")
+        st.download_button("Scarica", buf.getvalue(), "foto.jpg", "image/jpeg")
