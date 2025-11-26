@@ -4,6 +4,7 @@ from docx import Document
 from docx.shared import Pt
 import io
 from PIL import Image, ImageOps
+import pypdf
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(
@@ -12,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- NASCONDI FOOTER ---
+# --- NASCONDI FOOTER (WHITE LABEL) ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -25,121 +26,124 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- GESTIONE API KEY ---
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 if not api_key:
-    api_key = st.sidebar.text_input("API Key (Access Code)", type="password")
+    # Se non c'è nei secrets, chiedila all'utente (utile per debug)
+    api_key = st.sidebar.text_input("Inserisci API Key", type="password")
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
     except Exception as e:
-        st.error(f"Errore API Key: {e}")
+        st.error(f"Errore configurazione Key: {e}")
 
-# --- FUNZIONE INTELLIGENTE (TRY-CATCH) ---
+# --- FUNZIONE CHIAMATA AI (GEMINI 1.5 PRO) ---
 def get_gemini_response(prompt):
-    # Tenta 3 modelli diversi prima di arrendersi
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text
-        except Exception:
-            continue # Se fallisce, prova il prossimo
-            
-    return "Errore: Impossibile contattare l'AI con questa chiave. Controlla i permessi o crea una nuova chiave gratuita su AI Studio."
-
-def get_gemini_search(query, language_ctx):
-    # La ricerca funziona meglio con i modelli Pro o Flash
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        tools = [{'google_search': {}}]
-        final_prompt = f"{language_ctx} Query: {query}"
-        response = model.generate_content(final_prompt, tools=tools)
+        # Usiamo esattamente il modello che volevi
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        response = model.generate_content(prompt)
         return response.text
-    except:
-        return "Errore nella ricerca. La tua chiave potrebbe non supportare Google Search Grounding."
+    except Exception as e:
+        # SPIA DI ERRORE: Restituisce l'errore esatto per capire cosa non va
+        return f"ERRORE TECNICO: {str(e)}"
 
-# --- TRADUZIONI ---
+def get_gemini_search(query, ctx):
+    try:
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        tools = [{'google_search': {}}]
+        response = model.generate_content(f"{ctx} Query: {query}", tools=tools)
+        return response.text
+    except Exception as e:
+        return f"ERRORE RICERCA: {str(e)}"
+
+# --- TRADUZIONI COMPLETE ---
 translations = {
     "Italiano": {
-        "nav_title": "Navigazione", "menu_home": "🏠 Home", "menu_cv": "📄 Riformatta CV",
-        "menu_photo": "📸 Studio Foto", "menu_letter": "✍️ Lettera Presentazione",
-        "menu_match": "⚖️ Analisi Compatibilità", "menu_search": "🌍 Ricerca Lavoro",
-        "menu_sim": "🎙️ Simulazione Colloquio", "menu_qa": "💡 Risposte Esperte",
-        "welcome_title": "Benvenuto in Global Career Coach 🚀",
-        "welcome_text": "La piattaforma professionale per la tua carriera.",
-        "upload_cv": "Carica CV (PDF)", "generate_btn": "Genera Documento",
-        "processing": "Elaborazione...", "success": "Fatto!", "download_word": "Scarica Word",
-        "photo_instruction": "Carica Foto", "border_size": "Bordo", "download_photo": "Scarica Foto",
-        "job_desc_label": "Testo Annuncio", "analyze_btn": "Analizza", 
-        "search_label": "Ruolo", "location_label": "Città", "search_btn": "Cerca",
-        "sim_start": "Inizia", "your_answer": "Tua risposta", "qa_label": "Domanda difficile", "qa_btn": "Rispondi",
-        "missing_key": "Inserisci API Key per iniziare.",
-        "search_context": "Trova 5 offerte di lavoro reali con link."
+        "nav_title": "Navigazione", 
+        "menu_home": "🏠 Home", "menu_cv": "📄 Riformatta CV",
+        "menu_photo": "📸 Studio Foto", "menu_letter": "✍️ Lettera",
+        "menu_match": "⚖️ Matching CV", "menu_search": "🌍 Ricerca Lavoro",
+        "menu_sim": "🎙️ Simulazione", "menu_qa": "💡 Q&A Esperto",
+        "welcome": "Benvenuto in Global Career Coach 🚀",
+        "subtitle": "La piattaforma AI professionale per la tua carriera.",
+        "card_cv": "Design professionale CV", "card_match": "Ottimizzazione ATS",
+        "card_search": "Ricerca Globale", "card_sim": "Training Colloqui",
+        "up_cv": "Carica CV (PDF)", "btn_gen": "Genera Documento",
+        "proc": "Elaborazione in corso... (Gemini 1.5 Pro)", "ok": "Fatto!", "dl_word": "Scarica Word",
+        "up_foto": "Carica Foto", "border": "Bordo", "dl_foto": "Scarica Foto",
+        "job_ad": "Testo Annuncio", "btn_match": "Analizza", 
+        "role": "Ruolo", "city": "Città", "btn_search": "Cerca",
+        "start_sim": "Inizia", "you": "Tu", "q_label": "Domanda", "btn_ans": "Rispondi",
+        "no_key": "Inserisci API Key.", "search_ctx": "Trova 5 offerte di lavoro reali con link."
     },
     "English": {
-        "nav_title": "Navigation", "menu_home": "🏠 Home", "menu_cv": "📄 Reformat CV",
+        "nav_title": "Navigation", 
+        "menu_home": "🏠 Home", "menu_cv": "📄 Reformat CV",
         "menu_photo": "📸 Photo Studio", "menu_letter": "✍️ Cover Letter",
         "menu_match": "⚖️ Job Matching", "menu_search": "🌍 Job Search",
-        "menu_sim": "🎙️ Interview Sim", "menu_qa": "💡 Expert QA",
-        "welcome_title": "Welcome to Global Career Coach 🚀",
-        "welcome_text": "Professional career platform.",
-        "upload_cv": "Upload CV (PDF)", "generate_btn": "Generate",
-        "processing": "Processing...", "success": "Done!", "download_word": "Download Word",
-        "photo_instruction": "Upload Photo", "border_size": "Border", "download_photo": "Download Photo",
-        "job_desc_label": "Job Ad", "analyze_btn": "Analyze", 
-        "search_label": "Role", "location_label": "City", "search_btn": "Search",
-        "sim_start": "Start", "your_answer": "Your answer", "qa_label": "Hard question", "qa_btn": "Answer",
-        "missing_key": "Enter API Key to start.",
-        "search_context": "Find 5 real job offers with links."
+        "menu_sim": "🎙️ Interview Sim", "menu_qa": "💡 Expert Q&A",
+        "welcome": "Welcome to Global Career Coach 🚀",
+        "subtitle": "Professional AI career platform.",
+        "card_cv": "Professional CV Design", "card_match": "ATS Optimization",
+        "card_search": "Global Job Hunt", "card_sim": "Interview Training",
+        "up_cv": "Upload CV (PDF)", "btn_gen": "Generate",
+        "proc": "Processing... (Gemini 1.5 Pro)", "ok": "Done!", "dl_word": "Download Word",
+        "up_foto": "Upload Photo", "border": "Border", "dl_foto": "Download Photo",
+        "job_ad": "Job Ad", "btn_match": "Analyze", 
+        "role": "Role", "city": "City", "btn_search": "Search",
+        "start_sim": "Start", "you": "You", "q_label": "Question", "btn_ans": "Answer",
+        "no_key": "Enter API Key.", "search_ctx": "Find 5 real job offers with links."
     },
      "Deutsch": {
-        "nav_title": "Navigation", "menu_home": "🏠 Startseite", "menu_cv": "📄 Lebenslauf",
+        "nav_title": "Navigation", 
+        "menu_home": "🏠 Startseite", "menu_cv": "📄 Lebenslauf",
         "menu_photo": "📸 Fotostudio", "menu_letter": "✍️ Anschreiben",
         "menu_match": "⚖️ Matching", "menu_search": "🌍 Jobsuche",
         "menu_sim": "🎙️ Interview", "menu_qa": "💡 Experten",
-        "welcome_title": "Willkommen bei Global Career Coach 🚀",
-        "welcome_text": "Ihre Karriere-Plattform.",
-        "upload_cv": "CV hochladen (PDF)", "generate_btn": "Erstellen",
-        "processing": "Verarbeitung...", "success": "Fertig!", "download_word": "Word laden",
-        "photo_instruction": "Foto hochladen", "border_size": "Rand", "download_photo": "Foto laden",
-        "job_desc_label": "Stellenanzeige", "analyze_btn": "Analysieren", 
-        "search_label": "Position", "location_label": "Stadt", "search_btn": "Suchen",
-        "sim_start": "Starten", "your_answer": "Ihre Antwort", "qa_label": "Frage", "qa_btn": "Antworten",
-        "missing_key": "API Key eingeben.",
-        "search_context": "Finde 5 echte Stellenangebote mit Links."
+        "welcome": "Willkommen bei Global Career Coach 🚀",
+        "subtitle": "Ihre professionelle Karriere-Plattform.",
+        "card_cv": "CV Design", "card_match": "ATS Optimierung",
+        "card_search": "Globale Suche", "card_sim": "Interview Training",
+        "up_cv": "CV hochladen (PDF)", "btn_gen": "Erstellen",
+        "proc": "Verarbeitung... (Gemini 1.5 Pro)", "ok": "Fertig!", "dl_word": "Word laden",
+        "up_foto": "Foto hochladen", "border": "Rand", "dl_foto": "Foto laden",
+        "job_ad": "Stellenanzeige", "btn_match": "Analysieren", 
+        "role": "Position", "city": "Stadt", "btn_search": "Suchen",
+        "start_sim": "Starten", "you": "Sie", "q_label": "Frage", "btn_ans": "Antworten",
+        "no_key": "API Key eingeben.", "search_ctx": "Finde 5 echte Stellenangebote mit Links."
     },
     "Español": {
         "nav_title": "Navegación", "menu_home": "🏠 Inicio", "menu_cv": "📄 CV",
         "menu_photo": "📸 Foto", "menu_letter": "✍️ Carta",
         "menu_match": "⚖️ Matching", "menu_search": "🌍 Buscar",
         "menu_sim": "🎙️ Entrevista", "menu_qa": "💡 Expertos",
-        "welcome_title": "Bienvenido a Global Career Coach 🚀",
-        "welcome_text": "Tu plataforma de carrera.",
-        "upload_cv": "Subir CV (PDF)", "generate_btn": "Generar",
-        "processing": "Procesando...", "success": "¡Hecho!", "download_word": "Descargar Word",
-        "photo_instruction": "Subir Foto", "border_size": "Borde", "download_photo": "Descargar Foto",
-        "job_desc_label": "Oferta", "analyze_btn": "Analizar", 
-        "search_label": "Puesto", "location_label": "Ciudad", "search_btn": "Buscar",
-        "sim_start": "Empezar", "your_answer": "Tu respuesta", "qa_label": "Pregunta", "qa_btn": "Responder",
-        "missing_key": "Introduce API Key.",
-        "search_context": "Encuentra 5 ofertas reales con enlaces."
+        "welcome": "Bienvenido a Global Career Coach 🚀",
+        "subtitle": "Tu plataforma de carrera.",
+        "card_cv": "Diseño CV", "card_match": "Optimización ATS",
+        "card_search": "Búsqueda Global", "card_sim": "Entrenamiento",
+        "up_cv": "Subir CV (PDF)", "btn_gen": "Generar",
+        "proc": "Procesando...", "ok": "¡Hecho!", "dl_word": "Descargar Word",
+        "up_foto": "Subir Foto", "border": "Borde", "dl_foto": "Descargar Foto",
+        "job_ad": "Oferta", "btn_match": "Analizar", 
+        "role": "Puesto", "city": "Ciudad", "btn_search": "Buscar",
+        "start_sim": "Empezar", "you": "Tú", "q_label": "Pregunta", "btn_ans": "Responder",
+        "no_key": "Introduce API Key.", "search_ctx": "Encuentra 5 ofertas reales con enlaces."
     },
     "Português": {
         "nav_title": "Navegação", "menu_home": "🏠 Início", "menu_cv": "📄 CV",
         "menu_photo": "📸 Foto", "menu_letter": "✍️ Carta",
         "menu_match": "⚖️ Matching", "menu_search": "🌍 Busca",
         "menu_sim": "🎙️ Entrevista", "menu_qa": "💡 Especialistas",
-        "welcome_title": "Bem-vindo ao Global Career Coach 🚀",
-        "welcome_text": "Sua plataforma de carreira.",
-        "upload_cv": "Enviar CV (PDF)", "generate_btn": "Gerar",
-        "processing": "Processando...", "success": "Pronto!", "download_word": "Baixar Word",
-        "photo_instruction": "Enviar Foto", "border_size": "Borda", "download_photo": "Baixar Foto",
-        "job_desc_label": "Anúncio", "analyze_btn": "Analisar", 
-        "search_label": "Cargo", "location_label": "Cidade", "search_btn": "Buscar",
-        "sim_start": "Iniciar", "your_answer": "Sua resposta", "qa_label": "Pergunta", "qa_btn": "Responder",
-        "missing_key": "Insira API Key.",
-        "search_context": "Encontre 5 vagas reais com links."
+        "welcome": "Bem-vindo ao Global Career Coach 🚀",
+        "subtitle": "Sua plataforma de carreira.",
+        "card_cv": "Design CV", "card_match": "Otimização ATS",
+        "card_search": "Busca Global", "card_sim": "Treinamento",
+        "up_cv": "Enviar CV (PDF)", "btn_gen": "Gerar",
+        "proc": "Processando...", "ok": "Pronto!", "dl_word": "Baixar Word",
+        "up_foto": "Enviar Foto", "border": "Borda", "dl_foto": "Baixar Foto",
+        "job_ad": "Anúncio", "btn_match": "Analisar", 
+        "role": "Cargo", "city": "Cidade", "btn_search": "Buscar",
+        "start_sim": "Iniciar", "you": "Você", "q_label": "Pergunta", "btn_ans": "Responder",
+        "no_key": "Insira API Key.", "search_ctx": "Encontre 5 vagas reais com links."
     }
 }
 
@@ -156,80 +160,97 @@ with st.sidebar:
 
 # --- MAIN ---
 if page == t["menu_home"]:
-    st.title(t["welcome_title"])
-    st.write(t["welcome_text"])
+    st.title(t["welcome"])
+    st.subheader(t["subtitle"])
+    st.divider()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(f"**{t['menu_cv']}**\n\n{t['card_cv']}")
+        st.info(f"**{t['menu_match']}**\n\n{t['card_match']}")
+    with col2:
+        st.info(f"**{t['menu_search']}**\n\n{t['card_search']}")
+        st.info(f"**{t['menu_sim']}**\n\n{t['card_sim']}")
 
 elif page == t["menu_cv"]:
     st.header(t["menu_cv"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
-    f = st.file_uploader(t["upload_cv"], type=["pdf"])
-    if f and st.button(t["generate_btn"]):
-        import pypdf
+    if not api_key: st.warning(t["no_key"]); st.stop()
+    f = st.file_uploader(t["up_cv"], type=["pdf"])
+    if f and st.button(t["btn_gen"]):
         reader = pypdf.PdfReader(f)
         txt = "".join([p.extract_text() for p in reader.pages])
-        with st.spinner(t["processing"]):
-            res = get_gemini_response(f"Rewrite CV professionally in {lang_code}:\n{txt}")
-            doc = Document()
-            for line in res.split('\n'):
-                if line.strip(): doc.add_paragraph(line)
-            bio = io.BytesIO()
-            doc.save(bio)
-            st.download_button(t["download_word"], bio.getvalue(), "CV.docx")
+        with st.spinner(t["proc"]):
+            # Chiamata al modello
+            res = get_gemini_response(f"Rewrite CV professionally in {lang_code}. Plain text only:\n{txt}")
+            
+            # Se la risposta contiene "ERRORE", mostrala in rosso e ferma tutto
+            if "ERRORE" in res:
+                st.error(res)
+            else:
+                doc = Document()
+                doc.add_heading('CURRICULUM VITAE', 0)
+                for line in res.split('\n'):
+                    if line.strip(): doc.add_paragraph(line)
+                bio = io.BytesIO()
+                doc.save(bio)
+                st.success(t["ok"])
+                st.download_button(t["dl_word"], bio.getvalue(), "CV_Pro.docx")
 
 elif page == t["menu_photo"]:
     st.header(t["menu_photo"])
-    img = st.file_uploader(t["photo_instruction"], type=["jpg","png"])
+    img = st.file_uploader(t["up_foto"], type=["jpg","png"])
     if img:
-        b = st.slider(t["border_size"], 0, 50, 15)
+        b = st.slider(t["border"], 0, 50, 15)
         i = Image.open(img)
         new_i = ImageOps.expand(i, border=b, fill='white')
         st.image(new_i, width=300)
         buf = io.BytesIO()
         new_i.save(buf, format="JPEG")
-        st.download_button(t["download_photo"], buf.getvalue(), "photo.jpg", "image/jpeg")
+        st.download_button(t["dl_foto"], buf.getvalue(), "photo.jpg", "image/jpeg")
 
 elif page == t["menu_letter"]:
     st.header(t["menu_letter"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
-    ad = st.text_area(t["job_desc_label"])
-    if ad and st.button(t["generate_btn"]):
-        with st.spinner(t["processing"]):
+    if not api_key: st.warning(t["no_key"]); st.stop()
+    ad = st.text_area(t["job_ad"])
+    if ad and st.button(t["btn_gen"]):
+        with st.spinner(t["proc"]):
             res = get_gemini_response(f"Write cover letter in {lang_code}:\n{ad}")
-            st.markdown(res)
+            if "ERRORE" in res: st.error(res)
+            else: st.markdown(res)
 
 elif page == t["menu_match"]:
     st.header(t["menu_match"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
-    c = st.file_uploader(t["upload_cv"], type=["pdf"], key="m")
-    ad = st.text_area(t["job_desc_label"], key="ma")
-    if c and ad and st.button(t["analyze_btn"]):
-        import pypdf
+    if not api_key: st.warning(t["no_key"]); st.stop()
+    c = st.file_uploader(t["up_cv"], type=["pdf"], key="m")
+    ad = st.text_area(t["job_ad"], key="ma")
+    if c and ad and st.button(t["btn_match"]):
         reader = pypdf.PdfReader(c)
         txt = "".join([p.extract_text() for p in reader.pages])
-        with st.spinner(t["processing"]):
+        with st.spinner(t["proc"]):
             res = get_gemini_response(f"Match CV vs Job in {lang_code}. Score 0-100 & Feedback.\nCV:{txt}\nJOB:{ad}")
-            st.markdown(res)
+            if "ERRORE" in res: st.error(res)
+            else: st.markdown(res)
 
 elif page == t["menu_search"]:
     st.header(t["menu_search"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
-    r = st.text_input(t["search_label"])
-    l = st.text_input(t["location_label"])
-    if r and l and st.button(t["search_btn"]):
-        with st.spinner(t["processing"]):
-            res = get_gemini_search(f"Jobs {r} in {l}", t["search_context"])
-            st.markdown(res)
+    if not api_key: st.warning(t["no_key"]); st.stop()
+    r = st.text_input(t["role"])
+    l = st.text_input(t["city"])
+    if r and l and st.button(t["btn_search"]):
+        with st.spinner(t["proc"]):
+            res = get_gemini_search(f"Jobs {r} in {l}", t["search_ctx"])
+            if "ERRORE" in res: st.error(res)
+            else: st.markdown(res)
 
 elif page == t["menu_sim"]:
     st.header(t["menu_sim"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
+    if not api_key: st.warning(t["no_key"]); st.stop()
     if "chat" not in st.session_state: st.session_state.chat = []
-    if st.button(t["sim_start"]):
+    if st.button(t["start_sim"]):
         st.session_state.chat = []
         q = get_gemini_response(f"Start interview in {lang_code}. Ask first question.")
         st.session_state.chat.append({"role":"assistant", "content":q})
     for m in st.session_state.chat: st.chat_message(m["role"]).write(m["content"])
-    if u := st.chat_input(t["your_answer"]):
+    if u := st.chat_input(t["you"]):
         st.session_state.chat.append({"role":"user", "content":u})
         st.chat_message("user").write(u)
         with st.spinner("..."):
@@ -240,7 +261,9 @@ elif page == t["menu_sim"]:
 
 elif page == t["menu_qa"]:
     st.header(t["menu_qa"])
-    if not api_key: st.warning(t["missing_key"]); st.stop()
-    q = st.text_input(t["qa_label"])
-    if q and st.button(t["qa_btn"]):
-        st.markdown(get_gemini_response(f"Best answer for interview: {q} in {lang_code}"))
+    if not api_key: st.warning(t["no_key"]); st.stop()
+    q = st.text_input(t["q_label"])
+    if q and st.button(t["btn_ans"]):
+        res = get_gemini_response(f"Best answer for interview: {q} in {lang_code}")
+        if "ERRORE" in res: st.error(res)
+        else: st.markdown(res)
