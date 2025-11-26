@@ -1,4 +1,4 @@
-import streamlit as st
+        import streamlit as st
 import google.generativeai as genai
 from docx import Document
 from docx.shared import Pt
@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- NASCONDI FOOTER (WHITE LABEL) ---
+# --- NASCONDI FOOTER ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -26,36 +26,34 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- GESTIONE API KEY ---
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 if not api_key:
-    # Se non c'è nei secrets, chiedila all'utente (utile per debug)
     api_key = st.sidebar.text_input("Inserisci API Key", type="password")
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
     except Exception as e:
-        st.error(f"Errore configurazione Key: {e}")
+        st.error(f"Errore Key: {e}")
 
-# --- FUNZIONE CHIAMATA AI (GEMINI 1.5 PRO) ---
+# --- FUNZIONE CHIAMATA AI (GEMINI FLASH - IL PIÙ SICURO) ---
 def get_gemini_response(prompt):
     try:
-        # Usiamo esattamente il modello che volevi
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        # Usiamo FLASH: È veloce, stabile e non da errore 404
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        # SPIA DI ERRORE: Restituisce l'errore esatto per capire cosa non va
         return f"ERRORE TECNICO: {str(e)}"
 
 def get_gemini_search(query, ctx):
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         tools = [{'google_search': {}}]
         response = model.generate_content(f"{ctx} Query: {query}", tools=tools)
         return response.text
     except Exception as e:
         return f"ERRORE RICERCA: {str(e)}"
 
-# --- TRADUZIONI COMPLETE ---
+# --- TRADUZIONI ---
 translations = {
     "Italiano": {
         "nav_title": "Navigazione", 
@@ -68,7 +66,7 @@ translations = {
         "card_cv": "Design professionale CV", "card_match": "Ottimizzazione ATS",
         "card_search": "Ricerca Globale", "card_sim": "Training Colloqui",
         "up_cv": "Carica CV (PDF)", "btn_gen": "Genera Documento",
-        "proc": "Elaborazione in corso... (Gemini 1.5 Pro)", "ok": "Fatto!", "dl_word": "Scarica Word",
+        "proc": "Elaborazione in corso...", "ok": "Fatto!", "dl_word": "Scarica Word",
         "up_foto": "Carica Foto", "border": "Bordo", "dl_foto": "Scarica Foto",
         "job_ad": "Testo Annuncio", "btn_match": "Analizza", 
         "role": "Ruolo", "city": "Città", "btn_search": "Cerca",
@@ -86,7 +84,7 @@ translations = {
         "card_cv": "Professional CV Design", "card_match": "ATS Optimization",
         "card_search": "Global Job Hunt", "card_sim": "Interview Training",
         "up_cv": "Upload CV (PDF)", "btn_gen": "Generate",
-        "proc": "Processing... (Gemini 1.5 Pro)", "ok": "Done!", "dl_word": "Download Word",
+        "proc": "Processing...", "ok": "Done!", "dl_word": "Download Word",
         "up_foto": "Upload Photo", "border": "Border", "dl_foto": "Download Photo",
         "job_ad": "Job Ad", "btn_match": "Analyze", 
         "role": "Role", "city": "City", "btn_search": "Search",
@@ -104,7 +102,7 @@ translations = {
         "card_cv": "CV Design", "card_match": "ATS Optimierung",
         "card_search": "Globale Suche", "card_sim": "Interview Training",
         "up_cv": "CV hochladen (PDF)", "btn_gen": "Erstellen",
-        "proc": "Verarbeitung... (Gemini 1.5 Pro)", "ok": "Fertig!", "dl_word": "Word laden",
+        "proc": "Verarbeitung...", "ok": "Fertig!", "dl_word": "Word laden",
         "up_foto": "Foto hochladen", "border": "Rand", "dl_foto": "Foto laden",
         "job_ad": "Stellenanzeige", "btn_match": "Analysieren", 
         "role": "Position", "city": "Stadt", "btn_search": "Suchen",
