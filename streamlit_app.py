@@ -1,97 +1,47 @@
 import streamlit as st
 import google.generativeai as genai
-from docx import Document
-import io
-from PIL import Image, ImageOps
-import pypdf
 
-# --- CONFIGURAZIONE ---
-st.set_page_config(page_title="Career Coach", layout="wide")
+st.set_page_config(page_title="Diagnostica Gemini", page_icon="🔍")
 
-# --- GESTIONE CHIAVE ---
-# Proviamo a recuperarla dai secrets, se no la chiediamo a mano
-api_key = st.secrets.get("GEMINI_API_KEY", "")
+st.title("🔍 Test Diagnostico: Che modelli vede la tua chiave?")
+st.info("Questo test interroga direttamente i server di Google per vedere quali porte sono aperte.")
 
-with st.sidebar:
-    st.title("Configurazione")
-    # Se la chiave non c'è nei secrets, mostriamo il campo
+# 1. Inserimento Chiave
+api_key = st.text_input("Incolla qui la tua API Key (Proviamo prima quella GRATUITA di AI Studio)", type="password")
+
+if st.button("LANCIA IL TEST 🚀"):
     if not api_key:
-        api_key = st.text_input("Inserisci API Key", type="password")
-
-if api_key:
+        st.warning("Inserisci prima la chiave!")
+        st.stop()
+    
+    # 2. Configurazione
     try:
         genai.configure(api_key=api_key)
-    except Exception as e:
-        st.error(f"Errore Key: {e}")
-
-# --- FUNZIONE UNIVERSALE (GEMINI PRO CLASSICO) ---
-def get_gemini_response(prompt):
-    try:
-        # USIAMO IL MODELLO CLASSICO, QUELLO CHE NON FALLISCE MAI
-        # Se questo non va, nulla andrà.
-        model = genai.GenerativeModel('gemini-pro') 
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"ERRORE: {str(e)}"
-
-# --- TRADUZIONI ---
-translations = {
-    "Italiano": {"title": "Riformatta CV", "up": "Carica PDF", "btn": "Genera", "dl": "Scarica Word"},
-    "English": {"title": "Reformat CV", "up": "Upload PDF", "btn": "Generate", "dl": "Download Word"},
-    "Deutsch": {"title": "Lebenslauf", "up": "PDF hochladen", "btn": "Erstellen", "dl": "Word laden"},
-    "Español": {"title": "Reformatear CV", "up": "Subir PDF", "btn": "Generar", "dl": "Descargar Word"},
-    "Português": {"title": "Reformatar CV", "up": "Enviar PDF", "btn": "Gerar", "dl": "Baixar Word"}
-}
-
-# --- INTERFACCIA ---
-lang = st.sidebar.selectbox("Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
-t = translations[lang]
-
-st.title("Global Career Coach 🚀")
-
-# SEZIONE CV (Semplificata per testare)
-st.header(t["title"])
-
-if not api_key:
-    st.warning("Inserisci la chiave API nella barra laterale per iniziare.")
-    st.stop()
-
-uploaded_file = st.file_uploader(t["up"], type=["pdf"])
-
-if uploaded_file and st.button(t["btn"]):
-    # Lettura PDF
-    try:
-        reader = pypdf.PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-    except:
-        st.error("Errore nella lettura del PDF.")
-        st.stop()
-
-    with st.spinner("L'AI sta scrivendo... (Modello Standard)"):
-        # Chiamata AI
-        response_text = get_gemini_response(f"Riscrivi questo CV in modo professionale in {lang}:\n{text}")
+        st.write("✅ Connessione avviata...")
         
-        if "ERRORE" in response_text:
-            st.error(response_text)
-            st.info("Se vedi 404, la tua chiave non ha accesso nemmeno al modello base.")
+        # 3. Interrogazione (La parte magica)
+        available_models = []
+        all_models = genai.list_models()
+        
+        st.write("---")
+        st.write("### 📡 Risposta dai Server di Google:")
+        
+        found_any = False
+        for m in all_models:
+            # Cerchiamo solo i modelli che generano testo (non quelli per le immagini o embedding)
+            if 'generateContent' in m.supported_generation_methods:
+                found_any = True
+                st.success(f"🟢 TROVATO: `{m.name}`")
+                st.caption(f"Descrizione: {m.description}")
+                available_models.append(m.name)
+        
+        if not found_any:
+            st.error("❌ Nessun modello trovato. La connessione funziona ma la chiave non ha accesso ai modelli di generazione testo.")
         else:
-            # Creazione Word
-            doc = Document()
-            doc.add_heading('Curriculum Vitae', 0)
-            for line in response_text.split('\n'):
-                if line.strip():
-                    doc.add_paragraph(line)
+            st.balloons()
+            st.success(f"Test Superato! La tua chiave può usare {len(available_models)} modelli.")
             
-            bio = io.BytesIO()
-            doc.save(bio)
-            
-            st.success("Fatto!")
-            st.download_button(
-                label=t["dl"],
-                data=bio.getvalue(),
-                file_name="CV_Optimized.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
+    except Exception as e:
+        st.error("❌ ERRORE DI CONNESSIONE GRAVE:")
+        st.code(str(e))
+        st.write("Possibili cause: Chiave errata, Account Google bloccato, o limitazioni geografiche (VPN?).")
