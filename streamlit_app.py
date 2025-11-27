@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -14,19 +14,26 @@ import pypdf
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Career Coach Pro", page_icon="🚀", layout="wide")
 
-# --- CSS ---
+# --- CSS AVANZATO (Nasconde elementi indesiderati) ---
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden;} 
     header {visibility: hidden;}
+    
+    /* Stile Anteprima Foto */
     .photo-preview {
-        background-color: #333333;
+        background-color: #2b2b2b;
         padding: 20px;
         border-radius: 10px;
         text-align: center;
         margin-bottom: 20px;
-        border: 1px solid #555;
+        border: 2px solid #444;
+    }
+    
+    /* Nascondere label uploader standard per pulizia */
+    .stFileUploader label {
+        display: none;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -50,10 +57,10 @@ with st.sidebar:
         except: pass
 
 if not api_key:
-    st.warning("⚠️ API Key mancante / Missing API Key")
+    st.warning("⚠️ API Key mancante.")
     st.stop()
 
-# --- WORD XML HACKS ---
+# --- FUNZIONI WORD AVANZATE ---
 def set_cell_bg(cell, color_hex):
     tcPr = cell._tc.get_or_add_tcPr()
     shd = OxmlElement('w:shd')
@@ -74,65 +81,77 @@ def add_bottom_border(paragraph):
     pbdr.append(bottom)
     pPr.append(pbdr)
 
-def clean_text(text):
-    return text.replace("**", "").replace("###", "").replace("---", "").strip()
+def clean_ai_output(text):
+    """Pulisce markdown e frasi introduttive dell'AI"""
+    lines = text.split('\n')
+    clean_lines = []
+    start_copying = False
+    
+    for line in lines:
+        l = line.strip()
+        # Rimuove markdown
+        l = l.replace("**", "").replace("###", "").replace("---", "").replace("##", "")
+        
+        # Filtro Intelligente: Salta le frasi di cortesia iniziali
+        # Inizia a copiare solo quando trova un titolo maiuscolo o dati
+        if not start_copying:
+            # Se la linea è corta e contiene parole chiave tipo "Ecco" "Hier" "Here", la salta
+            if len(l) < 80 and ("Ecco" in l or "Hier" in l or "Here" in l or "Sure" in l or "Certamente" in l):
+                continue
+            start_copying = True
+        
+        if start_copying and l:
+            clean_lines.append(l)
+            
+    return "\n".join(clean_lines)
 
-# --- AI ENGINE ---
+# --- FUNZIONE AI (GEMINI 3 PRO) ---
 def get_ai(prompt):
     try:
         model = genai.GenerativeModel('gemini-3-pro-preview')
         return model.generate_content(prompt).text
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return f"ERRORE: {str(e)}"
 
-# --- LOCALIZZAZIONE ---
-loc = {
+# --- TRADUZIONI ---
+trans = {
     "Deutsch": {
-        "step1": "1. Foto hochladen", "step2": "2. Lebenslauf (PDF)", "gen": "CV Generieren", 
-        "load": "Analyse läuft...", "bord": "Rahmenbreite", "dl_btn": "Word Herunterladen", 
-        "preview": "Vorschau", "done": "Fertig!",
-        "p_header": "Extrahiere NUR: Vorname Nachname | Adresse | Telefon | E-Mail. Format: Name | Adresse | Tel | Email.",
-        "p_body": "Schreibe den CV auf DEUTSCH neu. Entferne Kontaktdaten. Nutze GROSSBUCHSTABEN für Titel."
+        "step1": "1. Foto hochladen", "step2": "2. Lebenslauf (PDF) hochladen", 
+        "gen": "CV Generieren", "load": "Analyse läuft...", "bord": "Rahmenbreite", "dl_btn": "Word Herunterladen", 
+        "preview": "Vorschau", "done": "Fertig!", "txt_up": "Hier klicken um PDF hochzuladen", "txt_img": "Hier klicken um Foto hochzuladen"
     },
     "Italiano": {
-        "step1": "1. Carica Foto", "step2": "2. Carica CV (PDF)", "gen": "Genera CV", 
-        "load": "Analisi in corso...", "bord": "Spessore Bordo", "dl_btn": "Scarica CV Word", 
-        "preview": "Anteprima", "done": "Fatto!",
-        "p_header": "Estrai SOLO: Nome Cognome | Indirizzo | Telefono | Email. Formato: Nome | Indirizzo | Tel | Email.",
-        "p_body": "Riscrivi il CV in ITALIANO. Rimuovi contatti. Usa MAIUSCOLO per i titoli."
+        "step1": "1. Carica Foto", "step2": "2. Carica CV (PDF)", 
+        "gen": "Genera CV", "load": "Analisi in corso...", "bord": "Spessore Bordo", "dl_btn": "Scarica CV Word", 
+        "preview": "Anteprima", "done": "Fatto!", "txt_up": "Carica qui il tuo PDF", "txt_img": "Carica qui la tua Foto"
     },
     "English": {
-        "step1": "1. Upload Photo", "step2": "2. Upload CV (PDF)", "gen": "Generate CV", 
-        "load": "Processing...", "bord": "Border Width", "dl_btn": "Download Word", 
-        "preview": "Preview", "done": "Done!",
-        "p_header": "Extract ONLY: Name Surname | Address | Phone | Email.",
-        "p_body": "Rewrite CV in ENGLISH. Remove contacts. Use UPPERCASE for titles."
+        "step1": "1. Upload Photo", "step2": "2. Upload CV (PDF)", 
+        "gen": "Generate CV", "load": "Processing...", "bord": "Border Width", "dl_btn": "Download Word", 
+        "preview": "Preview", "done": "Done!", "txt_up": "Upload PDF here", "txt_img": "Upload Photo here"
     },
     "Español": {
-        "step1": "1. Subir Foto", "step2": "2. Subir CV", "gen": "Generar CV", 
-        "load": "Procesando...", "bord": "Grosor Borde", "dl_btn": "Descargar Word", 
-        "preview": "Vista Previa", "done": "¡Hecho!",
-        "p_header": "Extrae SOLO: Nombre Apellido | Dirección | Teléfono | Email.",
-        "p_body": "Reescribe en ESPAÑOL. Elimina contactos. Usa MAYÚSCULAS para títulos."
+        "step1": "1. Subir Foto", "step2": "2. Subir CV", 
+        "gen": "Generar CV", "load": "Procesando...", "bord": "Grosor Borde", "dl_btn": "Descargar Word", 
+        "preview": "Vista Previa", "done": "¡Hecho!", "txt_up": "Sube tu PDF aquí", "txt_img": "Sube tu Foto aquí"
     },
     "Português": {
-        "step1": "1. Enviar Foto", "step2": "2. Enviar CV", "gen": "Gerar CV", 
-        "load": "Processando...", "bord": "Borda", "dl_btn": "Baixar Word", 
-        "preview": "Visualização", "done": "Pronto!",
-        "p_header": "Extraia APENAS: Nome Sobrenome | Endereço | Telefone | Email.",
-        "p_body": "Reescreva em PORTUGUÊS. Remova contatos. Use MAIÚSCULAS para títulos."
+        "step1": "1. Enviar Foto", "step2": "2. Enviar CV", 
+        "gen": "Gerar CV", "load": "Processando...", "bord": "Borda", "dl_btn": "Baixar Word", 
+        "preview": "Visualização", "done": "Pronto!", "txt_up": "Envie seu PDF aqui", "txt_img": "Envie sua Foto aqui"
     }
 }
-t = loc[lang]
+t = trans[lang]
 
 # === INTERFACCIA ===
 st.title("Global Career Coach 🚀")
 
-# STEP 1
+# STEP 1: FOTO
 st.subheader(t["step1"])
 c1, c2 = st.columns([1, 2])
 with c1:
-    f_img = st.file_uploader("Foto", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+    st.caption(t["txt_img"]) # Testo guida sopra
+    f_img = st.file_uploader("Foto_Input", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
     border_val = st.slider(t["bord"], 0, 50, 15)
 
 proc_img = None
@@ -147,9 +166,10 @@ with c2:
 
 st.divider()
 
-# STEP 2
+# STEP 2: PDF
 st.subheader(t["step2"])
-f_pdf = st.file_uploader("CV", type=["pdf"], label_visibility="collapsed")
+st.caption(t["txt_up"]) # Testo guida sopra
+f_pdf = st.file_uploader("CV_Input", type=["pdf"], label_visibility="collapsed")
 
 if st.button(t["gen"], type="primary"):
     if not f_pdf:
@@ -161,23 +181,31 @@ if st.button(t["gen"], type="primary"):
             for p in reader.pages: txt_in += p.extract_text()
             
             with st.spinner(t["load"]):
-                # HEADER DATA
-                h_prompt = f"{t['p_header']}\nTEXT: {txt_in[:1000]}"
+                # 1. HEADER DATA
+                h_prompt = f"Estrai ESATTAMENTE: Nome Cognome | Indirizzo | Telefono | Email.\nTESTO: {txt_in[:1000]}"
                 h_data = get_ai(h_prompt).strip()
                 
-                # BODY CONTENT
-                b_prompt = f"{t['p_body']}\nTEXT: {txt_in}"
-                b_content = clean_text(get_ai(b_prompt))
+                # 2. BODY CONTENT
+                b_prompt = f"""
+                Sei un HR Manager. Riscrivi il CV in {lang}.
+                1. NON SCRIVERE INTRODUZIONI. Inizia subito col primo titolo.
+                2. RIMUOVI i dati di contatto (li metto nel banner).
+                3. TITOLI SEZIONI: Tutti MAIUSCOLI.
+                TESTO: {txt_in}
+                """
+                b_content_raw = get_ai(b_prompt)
+                b_content = clean_ai_output(b_content_raw)
                 
-                # WORD DOC
+                # --- DOC BUILDER ---
                 doc = Document()
                 section = doc.sections[0]
                 section.top_margin = Cm(1.0)
                 section.left_margin = Cm(1.8)
                 section.right_margin = Cm(1.8)
                 
-                BANNER_COLOR = "2c5f85" # Blu Professional
+                BANNER_COLOR = "2c5f85"
 
+                # Creazione Tabella Banner
                 if proc_img:
                     tbl = doc.add_table(rows=1, cols=2)
                     tbl.columns[0].width = Cm(4.5)
@@ -186,6 +214,8 @@ if st.button(t["gen"], type="primary"):
                     set_cell_bg(c_img, BANNER_COLOR)
                     set_cell_bg(c_txt, BANNER_COLOR)
                     
+                    # Foto CENTRATA VERTICALMENTE
+                    c_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                     p = c_img.paragraphs[0]
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     run = p.add_run()
@@ -197,11 +227,13 @@ if st.button(t["gen"], type="primary"):
                     c_txt = tbl.cell(0,0)
                     set_cell_bg(c_txt, BANNER_COLOR)
 
+                # Parsing Dati
                 parts = h_data.split('|')
                 name = parts[0].strip() if len(parts)>0 else "Name"
                 address = parts[1].strip() if len(parts)>1 else ""
                 contacts = " • ".join([x.strip() for x in parts[2:]])
 
+                # Testo CENTRATO VERTICALMENTE
                 c_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                 
                 p1 = c_txt.paragraphs[0]
@@ -231,6 +263,7 @@ if st.button(t["gen"], type="primary"):
                     line = line.strip()
                     if not line: continue
                     
+                    # Rileva Titoli
                     if len(line)<60 and line.isupper() and any(c.isalpha() for c in line) and "@" not in line:
                         p = doc.add_paragraph()
                         p.space_before = Pt(14)
