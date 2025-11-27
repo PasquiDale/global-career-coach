@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Global Career Coach", 
     page_icon="👔", 
     layout="wide", 
-    initial_sidebar_state="expanded" # FIX: Forza l'apertura della sidebar
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. INIZIALIZZAZIONE SESSION STATE ---
@@ -28,7 +28,7 @@ if "generated_data" not in st.session_state:
 if "processed_photo" not in st.session_state:
     st.session_state.processed_photo = None
 
-# CSS per pulizia visiva
+# CSS per pulizia interfaccia
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -52,103 +52,82 @@ LANG_MAP = {
     "Português": "pt"
 }
 
-# Traduzioni Complete (Nessuna chiave mancante)
+# Traduzioni Complete (Chiavi unificate e verificate)
 TRANSLATIONS = {
-    "it": {
-        "sidebar_title": "Impostazioni Profilo", "lang_label": "Seleziona Lingua", 
-        "photo_label": "Foto Profilo", "border_label": "Spessore Bordo (px)", "preview_label": "Anteprima",
-        "main_title": "Generatore CV Professionale", "step1_title": "1. Carica il tuo CV", 
-        "upload_help": "Seleziona file PDF", "step2_title": "2. Annuncio di Lavoro", 
-        "job_placeholder": "Incolla qui il testo dell'annuncio...",
-        "btn_label": "✨ Genera Documenti", "spinner_msg": "Analisi in corso... attendere...",
-        "tab_cv": "CV Grafico", "tab_letter": "Lettera Presentazione", 
-        "down_cv": "Scarica CV (.docx)", "down_let": "Scarica Lettera (.docx)",
-        "success": "Documenti creati con successo!", "error": "Errore", 
-        "warn_input": "⚠️ Carica CV e Annuncio."
+    'it': {
+        'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo',
+        'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Generatore CV Professionale',
+        'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui',
+        'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...',
+        'btn_label': 'Genera Documenti', 'spinner_msg': 'Analisi in corso...',
+        'tab_cv': 'CV Generato', 'tab_letter': 'Lettera',
+        'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore'
     },
-    "en_uk": {
-        "sidebar_title": "Profile Settings", "lang_label": "Select Language",
-        "photo_label": "Profile Photo", "border_label": "Border Width (px)", "preview_label": "Preview",
-        "main_title": "Professional CV Generator", "step1_title": "1. Upload CV",
-        "upload_help": "Select PDF file", "step2_title": "2. Job Description",
-        "job_placeholder": "Paste job text here...",
-        "btn_label": "✨ Generate Documents", "spinner_msg": "Analysis in progress... please wait...",
-        "tab_cv": "Graphic CV", "tab_letter": "Cover Letter",
-        "down_cv": "Download CV (.docx)", "down_let": "Download Letter (.docx)",
-        "success": "Documents created successfully!", "error": "Error",
-        "warn_input": "⚠️ Please upload CV and Job Ad."
+    'en_us': {
+        'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo',
+        'border_label': 'Border Width (px)', 'preview_label': 'Preview', 'main_title': 'Professional CV Generator',
+        'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drag and drop file',
+        'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer text here...',
+        'btn_label': 'Generate Documents', 'spinner_msg': 'Analyzing...',
+        'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter',
+        'down_cv': 'Download CV (Docx)', 'down_let': 'Download Letter (Docx)', 'success': 'Done!', 'error': 'Error'
     },
-    "en_us": {
-        "sidebar_title": "Profile Settings", "lang_label": "Select Language",
-        "photo_label": "Profile Photo", "border_label": "Border Width (px)", "preview_label": "Preview",
-        "main_title": "Professional Resume Generator", "step1_title": "1. Upload Resume",
-        "upload_help": "Select PDF file", "step2_title": "2. Job Description",
-        "job_placeholder": "Paste job text here...",
-        "btn_label": "✨ Generate Documents", "spinner_msg": "Analysis in progress... please wait...",
-        "tab_cv": "Graphic Resume", "tab_letter": "Cover Letter",
-        "down_cv": "Download Resume (.docx)", "down_let": "Download Letter (.docx)",
-        "success": "Documents created successfully!", "error": "Error",
-        "warn_input": "⚠️ Please upload Resume and Job Ad."
+    'en_uk': {
+        'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo',
+        'border_label': 'Border Width (px)', 'preview_label': 'Preview', 'main_title': 'Professional CV Generator',
+        'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drag and drop file',
+        'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer text here...',
+        'btn_label': 'Generate Documents', 'spinner_msg': 'Analysing...',
+        'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter',
+        'down_cv': 'Download CV (Docx)', 'down_let': 'Download Letter (Docx)', 'success': 'Done!', 'error': 'Error'
     },
-    "de_de": {
-        "sidebar_title": "Profileinstellungen", "lang_label": "Sprache auswählen",
-        "photo_label": "Profilbild", "border_label": "Rahmenbreite (px)", "preview_label": "Vorschau",
-        "main_title": "Professioneller Lebenslauf-Generator", "step1_title": "1. Lebenslauf hochladen",
-        "upload_help": "PDF Datei auswählen", "step2_title": "2. Stellenanzeige",
-        "job_placeholder": "Hier Text einfügen...",
-        "btn_label": "✨ Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...",
-        "tab_cv": "Lebenslauf", "tab_letter": "Anschreiben",
-        "down_cv": "Lebenslauf laden (.docx)", "down_let": "Anschreiben laden (.docx)",
-        "success": "Dokumente erfolgreich erstellt!", "error": "Fehler",
-        "warn_input": "⚠️ Bitte CV und Anzeige hochladen."
+    'de_ch': {
+        'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild',
+        'border_label': 'Rahmenbreite (px)', 'preview_label': 'Vorschau', 'main_title': 'Professioneller Lebenslauf-Generator',
+        'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen',
+        'step2_title': '2. Stellenbeschrieb', 'job_placeholder': 'Text der Stellenanzeige hier einfügen...',
+        'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Analyse läuft...',
+        'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben',
+        'down_cv': 'Lebenslauf (Word)', 'down_let': 'Brief (Word)', 'success': 'Fertig!', 'error': 'Fehler'
     },
-    "de_ch": {
-        "sidebar_title": "Profileinstellungen", "lang_label": "Sprache auswählen",
-        "photo_label": "Profilbild", "border_label": "Rahmenbreite (px)", "preview_label": "Vorschau",
-        "main_title": "Professioneller Lebenslauf-Generator", "step1_title": "1. Lebenslauf hochladen",
-        "upload_help": "PDF Datei auswählen", "step2_title": "2. Stellenbeschrieb",
-        "job_placeholder": "Hier Text einfügen...",
-        "btn_label": "✨ Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...",
-        "tab_cv": "Lebenslauf", "tab_letter": "Begleitschreiben",
-        "down_cv": "Lebenslauf laden (.docx)", "down_let": "Begleitschreiben laden (.docx)",
-        "success": "Dokumente erfolgreich erstellt!", "error": "Fehler",
-        "warn_input": "⚠️ Bitte CV und Stellenbeschrieb hochladen."
+    'de_de': {
+        'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild',
+        'border_label': 'Rahmenbreite (px)', 'preview_label': 'Vorschau', 'main_title': 'Professioneller Lebenslauf-Generator',
+        'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen',
+        'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Text der Stellenanzeige hier einfügen...',
+        'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Analyse läuft...',
+        'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben',
+        'down_cv': 'Lebenslauf (Word)', 'down_let': 'Brief (Word)', 'success': 'Fertig!', 'error': 'Fehler'
     },
-    "es": {
-        "sidebar_title": "Ajustes de Perfil", "lang_label": "Seleccionar Idioma",
-        "photo_label": "Foto de Perfil", "border_label": "Grosor Borde (px)", "preview_label": "Vista Previa",
-        "main_title": "Generador de CV Profesional", "step1_title": "1. Subir CV",
-        "upload_help": "Seleccionar PDF", "step2_title": "2. Oferta de Trabajo",
-        "job_placeholder": "Pegar texto aquí...",
-        "btn_label": "✨ Generar Documentos", "spinner_msg": "Análisis en curso...",
-        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Presentación",
-        "down_cv": "Descargar CV (.docx)", "down_let": "Descargar Carta (.docx)",
-        "success": "¡Documentos generados!", "error": "Error",
-        "warn_input": "⚠️ Sube CV y Oferta."
+    'es': {
+        'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto de Perfil',
+        'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Generador de CV Profesional',
+        'step1_title': '1. Subir CV (PDF)', 'upload_help': 'Arrastra el archivo aquí',
+        'step2_title': '2. Oferta de Trabajo', 'job_placeholder': 'Pega aquí la oferta...',
+        'btn_label': 'Generar Documentos', 'spinner_msg': 'Analizando...',
+        'tab_cv': 'CV Generado', 'tab_letter': 'Carta de Presentación',
+        'down_cv': 'Descargar CV (Word)', 'down_let': 'Descargar Carta (Word)', 'success': '¡Hecho!', 'error': 'Error'
     },
-    "pt": {
-        "sidebar_title": "Configurações de Perfil", "lang_label": "Selecionar Idioma",
-        "photo_label": "Foto de Perfil", "border_label": "Borda da Foto (px)", "preview_label": "Visualização",
-        "main_title": "Gerador de Currículo Profissional", "step1_title": "1. Enviar CV",
-        "upload_help": "Selecionar PDF", "step2_title": "2. Anúncio de Emprego",
-        "job_placeholder": "Colar texto aqui...",
-        "btn_label": "✨ Gerar Documentos", "spinner_msg": "Análise em andamento...",
-        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Apresentação",
-        "down_cv": "Baixar CV (.docx)", "down_let": "Baixar Carta (.docx)",
-        "success": "Documentos gerados!", "error": "Erro",
-        "warn_input": "⚠️ Envie CV e Anúncio."
+    'pt': {
+        'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto de Perfil',
+        'border_label': 'Borda (px)', 'preview_label': 'Pré-visualização', 'main_title': 'Gerador de CV Profissional',
+        'step1_title': '1. Carregar CV (PDF)', 'upload_help': 'Arraste o arquivo aqui',
+        'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole aqui o anúncio...',
+        'btn_label': 'Gerar Documentos', 'spinner_msg': 'Analisando...',
+        'tab_cv': 'CV Gerado', 'tab_letter': 'Carta de Apresentação',
+        'down_cv': 'Baixar CV (Word)', 'down_let': 'Baixar Carta (Word)', 'success': 'Pronto!', 'error': 'Erro'
     }
 }
 
-# Titoli Sezioni Word (Hardcoded per coerenza)
+# Titoli Sezioni Word (Hardcoded)
 SECTION_TITLES = {
-    "it": {"summary": "PROFILO", "exp": "ESPERIENZA PROFESSIONALE", "edu": "FORMAZIONE", "skills": "COMPETENZE"},
-    "en_uk": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS"},
-    "en_us": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS"},
-    "de_de": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN"},
-    "de_ch": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN"},
-    "es": {"summary": "PERFIL", "exp": "EXPERIENCIA PROFESIONAL", "edu": "FORMACIÓN", "skills": "HABILIDADES"},
-    "pt": {"summary": "PERFIL", "exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skills": "COMPETÊNCIAS"}
+    "it": {"summary": "PROFILO", "exp": "ESPERIENZA PROFESSIONALE", "edu": "FORMAZIONE", "skills": "COMPETENZE", "lang": "LINGUE"},
+    "en_uk": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS", "lang": "LANGUAGES"},
+    "en_us": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS", "lang": "LANGUAGES"},
+    "de_de": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN", "lang": "SPRACHEN"},
+    "de_ch": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN", "lang": "SPRACHEN"},
+    "es": {"summary": "PERFIL", "exp": "EXPERIENCIA PROFESIONAL", "edu": "FORMACIÓN", "skills": "HABILIDADES", "lang": "IDIOMAS"},
+    "pt": {"summary": "PERFIL", "exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skills": "COMPETÊNCIAS", "lang": "IDIOMAS"}
 }
 
 # --- 4. API CONFIG ---
@@ -156,7 +135,7 @@ try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error("🚨 API KEY mancante nei Secrets.")
+    st.error("🚨 API KEY mancante.")
     st.stop()
 
 # --- 5. FUNZIONI HELPER ---
@@ -266,9 +245,9 @@ def create_cv_docx(data, pil_image, lang_code):
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # === MISURE RIGIDE ===
-    table.columns[0].width = Inches(1.3) # Foto Stretta
-    table.columns[1].width = Inches(6.0) # Testo Largo
+    # === MISURE RIGIDE (NO SPAZI VUOTI) ===
+    table.columns[0].width = Inches(1.3) # Foto (Stretta)
+    table.columns[1].width = Inches(6.0) # Testo (Largo)
     
     # Altezza Riga Banner (2.0 Pollici Esatti)
     row = table.rows[0]
@@ -371,7 +350,7 @@ def create_letter_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- 7. MAIN LOGIC (UI) ---
+# --- 7. MAIN APP LOGIC ---
 
 # Sidebar: Lingua
 with st.sidebar:
@@ -385,28 +364,35 @@ with st.sidebar:
     idx = vals.index(current_lang) if current_lang in vals else 0
     
     # Etichetta dinamica
-    curr_label = TRANSLATIONS[current_lang]['language_label']
+    curr_label = TRANSLATIONS[current_lang]['lang_label']
     
     sel_lang_name = st.selectbox(curr_label, lang_keys, index=idx)
     new_code = LANG_MAP[sel_lang_name]
     
+    # Rerun se cambia lingua
     if new_code != st.session_state.lang_code:
         st.session_state.lang_code = new_code
         st.rerun()
-        
+    
     t = TRANSLATIONS[st.session_state.lang_code]
     
     st.markdown("---")
     st.subheader(t['sidebar_title'])
     
-    u_photo = st.file_uploader(t['photo_label'], type=['jpg', 'png', 'jpeg'])
+    # Upload Foto
+    u_photo = st.file_uploader(t['photo_label'], type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
+    
     st.write(t['border_label'])
+    # Slider max 50px
     b_width = st.slider("B_Slider", 0, 50, 10, label_visibility="collapsed")
     
+    processed_img = None
     if u_photo:
         processed_img = process_image(u_photo, b_width)
         if processed_img:
+            # Salva in Session State per usarla dopo
             st.session_state.processed_photo = processed_img
+            
             buf = io.BytesIO()
             processed_img.save(buf, format="PNG")
             st.image(buf, width=150, caption=t['preview_label'])
@@ -426,7 +412,7 @@ with c2:
 
 if st.button(t['btn_label'], type="primary", use_container_width=True):
     if not u_cv or not job_desc:
-        st.warning(t['warn_input'])
+        st.warning("Input Missing")
     else:
         with st.spinner(t['spinner_msg']):
             cv_text = extract_pdf_text(u_cv)
