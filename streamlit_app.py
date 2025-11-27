@@ -13,26 +13,7 @@ import re
 import base64
 from PIL import Image, ImageOps
 
-# --- 1. SETUP ---
-st.set_page_config(page_title="Global Career AI", page_icon="👔", layout="wide")
-
-# CSS per pulizia interfaccia
-st.markdown("""
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .block-container {padding-top: 2rem;}
-    .stFileUploader label {font-size: 90%;}
-    .stImage {border: 1px solid #ddd; border-radius: 5px;}
-</style>
-""", unsafe_allow_html=True)
-
-# Session State Init
-if "generated_data" not in st.session_state:
-    st.session_state.generated_data = None
-
-# --- 2. DIZIONARI LINGUA & TRADUZIONI (DEFINITI SUBITO PER EVITARE ERRORI) ---
+# --- 1. COSTANTI E DIZIONARI (DEFINITI SUBITO) ---
 
 LANG_MAP = {
     "Italiano": "it",
@@ -44,18 +25,114 @@ LANG_MAP = {
     "Português": "pt"
 }
 
-# Testi Interfaccia
 TRANSLATIONS = {
-    "it": {"sidebar_title": "Impostazioni Profilo", "upload_photo": "Carica Foto", "border_width": "Spessore Bordo", "main_title": "AI Career Assistant", "upload_cv": "1. Carica CV (PDF)", "job_desc": "2. Annuncio di Lavoro", "generate_btn": "Genera Documenti", "tab_cv": "CV Generato", "tab_letter": "Lettera Presentazione", "download_cv": "Scarica CV (.docx)", "download_letter": "Scarica Lettera (.docx)", "success": "Fatto!", "error": "Errore:"},
-    "en_uk": {"sidebar_title": "Profile Settings", "upload_photo": "Upload Photo", "border_width": "Border Width", "main_title": "AI Career Assistant", "upload_cv": "1. Upload CV (PDF)", "job_desc": "2. Job Description", "generate_btn": "Generate Documents", "tab_cv": "Generated CV", "tab_letter": "Cover Letter", "download_cv": "Download CV (.docx)", "download_letter": "Download Letter (.docx)", "success": "Done!", "error": "Error:"},
-    "en_us": {"sidebar_title": "Profile Settings", "upload_photo": "Upload Photo", "border_width": "Border Width", "main_title": "AI Career Assistant", "upload_cv": "1. Upload Resume (PDF)", "job_desc": "2. Job Description", "generate_btn": "Generate Documents", "tab_cv": "Generated Resume", "tab_letter": "Cover Letter", "download_cv": "Download Resume (.docx)", "download_letter": "Download Letter (.docx)", "success": "Done!", "error": "Error:"},
-    "de_de": {"sidebar_title": "Profileinstellungen", "upload_photo": "Foto hochladen", "border_width": "Rahmenbreite", "main_title": "KI Karriere-Assistent", "upload_cv": "1. Lebenslauf (PDF)", "job_desc": "2. Stellenanzeige", "generate_btn": "Dokumente erstellen", "tab_cv": "Lebenslauf", "tab_letter": "Anschreiben", "download_cv": "Lebenslauf laden (.docx)", "download_letter": "Anschreiben laden (.docx)", "success": "Fertig!", "error": "Fehler:"},
-    "de_ch": {"sidebar_title": "Profileinstellungen", "upload_photo": "Foto hochladen", "border_width": "Rahmenbreite", "main_title": "KI Karriere-Assistent", "upload_cv": "1. Lebenslauf (PDF)", "job_desc": "2. Stellenbeschrieb", "generate_btn": "Dokumente erstellen", "tab_cv": "Lebenslauf", "tab_letter": "Begleitschreiben", "download_cv": "Lebenslauf laden (.docx)", "download_letter": "Begleitschreiben laden (.docx)", "success": "Fertig!", "error": "Fehler:"},
-    "es": {"sidebar_title": "Ajustes de Perfil", "upload_photo": "Subir Foto", "border_width": "Grosor Borde", "main_title": "Asistente de Carrera IA", "upload_cv": "1. Subir CV (PDF)", "job_desc": "2. Oferta de Trabajo", "generate_btn": "Generar Documentos", "tab_cv": "CV Generado", "tab_letter": "Carta de Presentación", "download_cv": "Descargar CV (.docx)", "download_letter": "Descargar Carta (.docx)", "success": "¡Hecho!", "error": "Error:"},
-    "pt": {"sidebar_title": "Configurações de Perfil", "upload_photo": "Carregar Foto", "border_width": "Borda da Foto", "main_title": "Assistente de Carreira IA", "upload_cv": "1. Enviar CV (PDF)", "job_desc": "2. Anúncio de Emprego", "generate_btn": "Gerar Documentos", "tab_cv": "CV Gerado", "tab_letter": "Carta de Apresentação", "download_cv": "Baixar CV (.docx)", "download_letter": "Baixar Carta (.docx)", "success": "Pronto!", "error": "Erro:"}
+    "it": {
+        "title": "Generatore CV Professionale",
+        "sidebar_photo": "Foto Profilo",
+        "border_width": "Bordo Foto (px)",
+        "upload_cv": "1. Carica CV (PDF)",
+        "job_desc": "2. Annuncio di Lavoro",
+        "generate_btn": "Genera Documenti",
+        "success_msg": "Documenti generati con successo!",
+        "error_msg": "Errore durante la generazione:",
+        "tab_cv": "CV Grafico",
+        "tab_letter": "Lettera Presentazione",
+        "download_cv_btn": "Scarica CV (.docx)",
+        "download_letter_btn": "Scarica Lettera (.docx)",
+        "preview": "Anteprima Foto"
+    },
+    "en_uk": {
+        "title": "Professional CV Generator",
+        "sidebar_photo": "Profile Photo",
+        "border_width": "Photo Border (px)",
+        "upload_cv": "1. Upload CV (PDF)",
+        "job_desc": "2. Job Description",
+        "generate_btn": "Generate Documents",
+        "success_msg": "Documents generated successfully!",
+        "error_msg": "Error during generation:",
+        "tab_cv": "Graphic CV",
+        "tab_letter": "Cover Letter",
+        "download_cv_btn": "Download CV (.docx)",
+        "download_letter_btn": "Download Letter (.docx)",
+        "preview": "Photo Preview"
+    },
+    "en_us": {
+        "title": "Professional Resume Generator",
+        "sidebar_photo": "Profile Photo",
+        "border_width": "Photo Border (px)",
+        "upload_cv": "1. Upload Resume (PDF)",
+        "job_desc": "2. Job Description",
+        "generate_btn": "Generate Documents",
+        "success_msg": "Documents generated successfully!",
+        "error_msg": "Error during generation:",
+        "tab_cv": "Graphic Resume",
+        "tab_letter": "Cover Letter",
+        "download_cv_btn": "Download Resume (.docx)",
+        "download_letter_btn": "Download Letter (.docx)",
+        "preview": "Photo Preview"
+    },
+    "de_de": {
+        "title": "Professioneller Lebenslauf-Generator",
+        "sidebar_photo": "Profilbild",
+        "border_width": "Rahmenbreite (px)",
+        "upload_cv": "1. Lebenslauf hochladen (PDF)",
+        "job_desc": "2. Stellenanzeige",
+        "generate_btn": "Dokumente erstellen",
+        "success_msg": "Dokumente erfolgreich erstellt!",
+        "error_msg": "Fehler bei der Erstellung:",
+        "tab_cv": "Lebenslauf",
+        "tab_letter": "Anschreiben",
+        "download_cv_btn": "Lebenslauf laden (.docx)",
+        "download_letter_btn": "Anschreiben laden (.docx)",
+        "preview": "Vorschau"
+    },
+    "de_ch": {
+        "title": "Professioneller Lebenslauf-Generator (CH)",
+        "sidebar_photo": "Profilbild",
+        "border_width": "Rahmenbreite (px)",
+        "upload_cv": "1. Lebenslauf hochladen (PDF)",
+        "job_desc": "2. Stellenbeschrieb",
+        "generate_btn": "Dokumente erstellen",
+        "success_msg": "Dokumente erfolgreich erstellt!",
+        "error_msg": "Fehler bei der Erstellung:",
+        "tab_cv": "Lebenslauf",
+        "tab_letter": "Begleitschreiben",
+        "download_cv_btn": "Lebenslauf laden (.docx)",
+        "download_letter_btn": "Begleitschreiben laden (.docx)",
+        "preview": "Vorschau"
+    },
+    "es": {
+        "title": "Generador de CV Profesional",
+        "sidebar_photo": "Foto de Perfil",
+        "border_width": "Borde Foto (px)",
+        "upload_cv": "1. Subir CV (PDF)",
+        "job_desc": "2. Oferta de Trabajo",
+        "generate_btn": "Generar Documentos",
+        "success_msg": "Documentos generados con éxito!",
+        "error_msg": "Error durante la generación:",
+        "tab_cv": "CV Gráfico",
+        "tab_letter": "Carta de Presentación",
+        "download_cv_btn": "Descargar CV (.docx)",
+        "download_letter_btn": "Descargar Carta (.docx)",
+        "preview": "Vista Previa"
+    },
+    "pt": {
+        "title": "Gerador de Currículo Profissional",
+        "sidebar_photo": "Foto de Perfil",
+        "border_width": "Borda da Foto (px)",
+        "upload_cv": "1. Enviar CV (PDF)",
+        "job_desc": "2. Anúncio de Emprego",
+        "generate_btn": "Gerar Documentos",
+        "success_msg": "Documentos gerados com sucesso!",
+        "error_msg": "Erro durante a geração:",
+        "tab_cv": "CV Gráfico",
+        "tab_letter": "Carta de Apresentação",
+        "download_cv_btn": "Baixar CV (.docx)",
+        "download_letter_btn": "Baixar Carta (.docx)",
+        "preview": "Visualização"
+    }
 }
 
-# Titoli Sezioni Word (Hardcoded per sicurezza linguistica)
 SECTION_TITLES = {
     "it": {"summary": "PROFILO", "exp": "ESPERIENZA PROFESSIONALE", "edu": "FORMAZIONE", "skills": "COMPETENZE"},
     "en_uk": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS"},
@@ -66,34 +143,10 @@ SECTION_TITLES = {
     "pt": {"summary": "PERFIL", "exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skills": "COMPETÊNCIAS"}
 }
 
-# --- 3. API CONFIG ---
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-except KeyError:
-    st.error("🚨 API KEY mancante. Aggiungila nei Secrets.")
-    st.stop()
-
-# --- 4. FUNZIONI HELPER ---
-
-def process_image(uploaded_file, border_width_px):
-    """Aggiunge il bordo bianco all'immagine e restituisce oggetto PIL."""
-    if not uploaded_file: return None
-    try:
-        uploaded_file.seek(0)
-        img = Image.open(uploaded_file)
-        if img.mode in ('RGBA', 'P'):
-            img = img.convert('RGB')
-        
-        # Bordo (moltiplicato per 2 per alta risoluzione)
-        if border_width_px > 0:
-            img = ImageOps.expand(img, border=int(border_width_px * 2), fill='white')
-        return img
-    except Exception:
-        return None
+# --- 2. FUNZIONI HELPER ---
 
 def set_cell_bg(cell, color_hex):
-    """Sfondo colorato cella Word via XML"""
+    """Colora lo sfondo di una cella Word."""
     tcPr = cell._element.get_or_add_tcPr()
     shd = OxmlElement('w:shd')
     shd.set(qn('w:val'), 'clear')
@@ -102,7 +155,7 @@ def set_cell_bg(cell, color_hex):
     tcPr.append(shd)
 
 def add_section_header(doc, text):
-    """Titolo sezione blu con linea sotto"""
+    """Titolo sezione blu con linea sotto."""
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(14)
     p.paragraph_format.space_after = Pt(6)
@@ -110,9 +163,9 @@ def add_section_header(doc, text):
     run = p.add_run(text)
     run.bold = True
     run.font.size = Pt(12)
-    run.font.color.rgb = RGBColor(32, 84, 125) # Blu #20547d
+    run.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
     
-    # Border Bottom (XML hack)
+    # Bordo inferiore (XML Hack)
     pPr = p._p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
@@ -128,6 +181,29 @@ def extract_pdf_text(file):
         reader = pypdf.PdfReader(file)
         return "\n".join([p.extract_text() for p in reader.pages])
     except: return ""
+
+def process_image(uploaded_file, border_width_px):
+    """Applica il bordo bianco all'immagine."""
+    if not uploaded_file: return None
+    try:
+        uploaded_file.seek(0)
+        img = Image.open(uploaded_file)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        
+        if border_width_px > 0:
+            img = ImageOps.expand(img, border=int(border_width_px * 2), fill='white')
+        return img
+    except: return None
+
+def get_image_base64(pil_image):
+    """Converte immagine PIL in base64 per HTML."""
+    if not pil_image: return None
+    try:
+        buffered = io.BytesIO()
+        pil_image.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+    except: return None
 
 def get_gemini_response(cv_text, job_desc, lang_code):
     try:
@@ -169,7 +245,7 @@ def get_gemini_response(cv_text, job_desc, lang_code):
         st.error(f"AI Error: {e}")
         return None
 
-# --- 5. CREAZIONE WORD (LAYOUT PIXEL PERFECT) ---
+# --- 3. CREAZIONE WORD (LAYOUT PIXEL PERFECT) ---
 
 def create_cv_docx(data, pil_image, lang_code):
     doc = Document()
@@ -183,14 +259,10 @@ def create_cv_docx(data, pil_image, lang_code):
     # --- HEADER TABLE ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    
-    # Larghezza colonne
     table.columns[0].width = Cm(4.5)  # Foto
     table.columns[1].width = Cm(13.0) # Testo
     
-    # === ALTEZZA RIGA ESATTA ===
-    # Banner: 2.0 Pollici. Foto: 1.5 Pollici.
-    # Risultato: Foto perfettamente centrata e avvolta dal blu.
+    # Altezza Riga Esatta (2.0 pollici)
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
     row.height = Inches(2.0)
@@ -198,17 +270,16 @@ def create_cv_docx(data, pil_image, lang_code):
     cell_img = table.cell(0, 0)
     cell_txt = table.cell(0, 1)
     
-    # Sfondo Blu (#20547d)
+    # Sfondo Blu
     blue_color = "20547d"
     set_cell_bg(cell_img, blue_color)
     set_cell_bg(cell_txt, blue_color)
     
-    # === ALLINEAMENTO VERTICALE ===
+    # Allineamento Verticale
     cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
-    # --- FOTO ---
-    # Pulizia totale paragrafo per centratura matematica
+    # Foto (1.5 pollici di altezza)
     p_img = cell_img.paragraphs[0]
     p_img.paragraph_format.space_before = Pt(0)
     p_img.paragraph_format.space_after = Pt(0)
@@ -217,17 +288,14 @@ def create_cv_docx(data, pil_image, lang_code):
     
     if pil_image:
         try:
-            # Salvataggio in memoria buffer per Word
             img_byte = io.BytesIO()
             pil_image.save(img_byte, format="PNG")
             img_byte.seek(0)
-            
-            # Inserimento foto a 1.5 pollici
             run = p_img.add_run()
-            run.add_picture(img_byte, height=Inches(1.5)) 
+            run.add_picture(img_byte, height=Inches(1.5))
         except: pass
         
-    # --- TESTO HEADER ---
+    # Testo Header
     p_name = cell_txt.paragraphs[0]
     p_name.paragraph_format.space_before = Pt(0)
     p_name.paragraph_format.space_after = Pt(0)
@@ -245,7 +313,7 @@ def create_cv_docx(data, pil_image, lang_code):
     
     doc.add_paragraph().space_after = Pt(12)
     
-    # --- BODY ---
+    # --- CORPO ---
     titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
     
     if data.get('summary_text'):
@@ -292,61 +360,77 @@ def create_letter_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- 6. LOGICA PRINCIPALE (MAIN) ---
+# --- 4. MAIN APP ---
 
-# Sidebar: Lingua
+st.set_page_config(page_title="Global Career AI", page_icon="👔", layout="wide")
+
+# Init Session State
+if "generated_data" not in st.session_state:
+    st.session_state.generated_data = None
+
+# Config API Key
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+except KeyError:
+    st.error("🚨 API KEY mancante nei Secrets.")
+    st.stop()
+
+# Sidebar: Lingua e Foto
 with st.sidebar:
+    st.title("⚙️ Setup")
     selected_lang_label = st.selectbox("Lingua / Language", list(LANG_MAP.keys()))
     lang_code = LANG_MAP[selected_lang_label]
-    txt = TRANSLATIONS[lang_code]
+    t = TRANSLATIONS[lang_code]
     
-    st.title(txt['sidebar_title'])
-    
-    # Foto e Slider
-    uploaded_photo = st.file_uploader(txt['upload_photo'], type=['jpg', 'png', 'jpeg'])
-    border_val = st.slider(txt['border_width'], 0, 20, 8)
+    st.markdown("---")
+    st.subheader(t['sidebar_photo'])
+    u_photo = st.file_uploader(t['sidebar_photo'], type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
+    b_width = st.slider(t['border_width'], 0, 20, 8)
     
     processed_img = None
-    if uploaded_photo:
-        processed_img = process_image(uploaded_photo, border_val)
+    if u_photo:
+        processed_img = process_image(u_photo, b_width)
         if processed_img:
-            st.image(processed_img, width=150, caption="Preview")
+            st.image(processed_img, width=150, caption=t['preview'])
 
 # Main Page
-st.title(f"🚀 {txt['main_title']}")
+st.title(f"🚀 {t['title']}")
 
 c1, c2 = st.columns(2)
 with c1:
-    uploaded_cv = st.file_uploader(txt['upload_cv'], type="pdf")
+    st.subheader(t['upload_cv'])
+    u_cv = st.file_uploader(t['upload_cv'], type="pdf", label_visibility="collapsed")
 with c2:
-    job_desc = st.text_area(txt['job_desc'], height=100)
+    st.subheader(t['job_desc'])
+    job_desc = st.text_area(t['job_desc'], height=150, label_visibility="collapsed")
 
-if st.button(txt['generate_btn'], type="primary", use_container_width=True):
-    if not uploaded_cv or not job_desc:
-        st.warning("Input mancanti.")
+if st.button(t['generate_btn'], type="primary", use_container_width=True):
+    if not u_cv or not job_desc:
+        st.warning("⚠️ Input mancanti.")
     else:
-        with st.spinner("Gemini 3 Pro..."):
-            cv_text = extract_pdf_text(uploaded_cv)
+        with st.spinner("Analisi Gemini 3 Pro..."):
+            cv_text = extract_pdf_text(u_cv)
             data = get_gemini_response(cv_text, job_desc, lang_code)
-            
             if data:
                 st.session_state.generated_data = data
-                st.success(txt['success'])
+                st.success(t['success_msg'])
 
 # Output Tabs
 if st.session_state.generated_data:
     d = st.session_state.generated_data
-    t1, t2 = st.tabs([txt['tab_cv'], txt['tab_letter']])
+    t1, t2 = st.tabs([t['tab_cv'], t['tab_letter']])
     
     with t1:
         st.subheader(d['personal_info']['name'])
+        st.caption(d['personal_info']['contact_line'])
         st.write(d['summary_text'])
+        st.markdown("---")
         
-        # Qui passiamo l'immagine processata
         docx_cv = create_cv_docx(d, processed_img, lang_code)
-        st.download_button(txt['download_cv'], docx_cv, "CV_Optimized.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.download_button(t['download_cv_btn'], docx_cv, "CV_Optimized.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         
     with t2:
         st.markdown(d['cover_letter_text'])
         docx_cl = create_letter_docx(d['cover_letter_text'])
-        st.download_button(txt['download_letter'], docx_cl, "Cover_Letter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.download_button(t['download_letter_btn'], docx_cl, "Cover_Letter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
