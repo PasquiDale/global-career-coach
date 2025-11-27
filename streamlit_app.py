@@ -3,7 +3,7 @@ import google.generativeai as genai
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
@@ -31,8 +31,7 @@ st.markdown("""
 if "generated_data" not in st.session_state:
     st.session_state.generated_data = None
 
-# --- 2. DIZIONARI LINGUA & TITOLI (HARDCODED) ---
-# Questo garantisce che i titoli siano sempre nella lingua corretta
+# --- 2. DIZIONARI LINGUA & TITOLI ---
 
 LANG_CODES = {
     "Italiano": "it",
@@ -44,7 +43,6 @@ LANG_CODES = {
     "Português": "pt"
 }
 
-# Traduzioni Interfaccia
 UI_TEXT = {
     "it": {"title": "Generatore CV Professionale", "ph_lbl": "Foto Profilo", "bord_lbl": "Spessore Bordo", "cv_lbl": "Carica CV (PDF)", "job_lbl": "Annuncio di Lavoro", "btn": "Genera Documenti", "dl_cv": "Scarica CV (.docx)", "dl_cl": "Scarica Lettera (.docx)"},
     "en_uk": {"title": "Professional CV Generator", "ph_lbl": "Profile Photo", "bord_lbl": "Border Width", "cv_lbl": "Upload CV (PDF)", "job_lbl": "Job Description", "btn": "Generate Documents", "dl_cv": "Download CV (.docx)", "dl_cl": "Download Letter (.docx)"},
@@ -55,13 +53,12 @@ UI_TEXT = {
     "pt": {"title": "Gerador de Currículo Profissional", "ph_lbl": "Foto de Perfil", "bord_lbl": "Borda da Foto", "cv_lbl": "Enviar CV (PDF)", "job_lbl": "Anúncio de Emprego", "btn": "Gerar Documentos", "dl_cv": "Baixar CV (.docx)", "dl_cl": "Baixar Carta (.docx)"}
 }
 
-# Traduzioni Titoli Sezioni Word (BLINDATE)
 SECTION_TITLES = {
     "it": {"summary": "PROFILO", "exp": "ESPERIENZA PROFESSIONALE", "edu": "FORMAZIONE", "skills": "COMPETENZE", "lang": "LINGUE"},
     "en_uk": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS", "lang": "LANGUAGES"},
     "en_us": {"summary": "PROFILE", "exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skills": "SKILLS", "lang": "LANGUAGES"},
     "de_de": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN", "lang": "SPRACHEN"},
-    "de_ch": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN", "lang": "SPRACHEN"}, 
+    "de_ch": {"summary": "PROFIL", "exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skills": "KOMPETENZEN", "lang": "SPRACHEN"},
     "es": {"summary": "PERFIL", "exp": "EXPERIENCIA PROFESIONAL", "edu": "FORMACIÓN", "skills": "HABILIDADES", "lang": "IDIOMAS"},
     "pt": {"summary": "PERFIL", "exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skills": "COMPETÊNCIAS", "lang": "IDIOMAS"}
 }
@@ -96,7 +93,6 @@ def add_section_header(doc, text):
     run.font.size = Pt(12)
     run.font.color.rgb = RGBColor(32, 84, 125) # Blu #20547d
     
-    # Border Bottom (XML)
     pPr = p._p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
@@ -130,7 +126,6 @@ def get_ai_data(cv_text, job_desc, lang_code):
     try:
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
-        # Istruzioni lingua specifiche
         lang_prompt = f"Target Language: {lang_code}."
         if lang_code == "de_ch":
             lang_prompt += " IMPORTANT: Use Swiss German spelling (use 'ss' instead of 'ß')."
@@ -167,22 +162,30 @@ def get_ai_data(cv_text, job_desc, lang_code):
         st.error(f"AI Error: {e}")
         return None
 
-# --- 6. WORD GENERATION (LAYOUT FIX) ---
+# --- 6. WORD GENERATION (PIXEL PERFECT) ---
 
 def create_cv_docx(data, photo_file, border_width, lang_code):
     doc = Document()
     
-    # Margini
+    # Margini Pagina
     section = doc.sections[0]
     section.top_margin = Cm(1.27)
     section.left_margin = Cm(1.27)
     section.right_margin = Cm(1.27)
     
     # --- HEADER TABLE ---
+    # Creiamo una tabella per il banner blu
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    table.columns[0].width = Cm(4.0)
-    table.columns[1].width = Cm(13.0)
+    
+    # Larghezza colonne
+    table.columns[0].width = Cm(4.5)  # Colonna Foto
+    table.columns[1].width = Cm(13.0) # Colonna Testo
+    
+    # IMPOSTIAMO UN'ALTEZZA MINIMA PER IL BANNER
+    # Questo è il trucco per l'avvolgimento: la riga sarà alta almeno 4cm
+    table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    table.rows[0].height = Cm(4.5)
     
     cell_img = table.cell(0, 0)
     cell_txt = table.cell(0, 1)
@@ -192,15 +195,25 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     set_cell_bg(cell_img, blue_color)
     set_cell_bg(cell_txt, blue_color)
     
-    # === FIX CENTRATURA VERTICALE ===
+    # === ALLINEAMENTO VERTICALE (CENTRATO) ===
+    # Fondamentale per avere spazio sopra e sotto la foto
     cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
-    # FOTO
+    # --- FOTO ---
+    # Puliamo il paragrafo della foto per evitare margini fantasma
+    p_img = cell_img.paragraphs[0]
+    p_img.paragraph_format.space_before = Pt(0)
+    p_img.paragraph_format.space_after = Pt(0)
+    p_img.paragraph_format.line_spacing = 1.0
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
     if photo_file:
         try:
             photo_file.seek(0)
             img = Image.open(photo_file)
+            
+            # Aggiunta bordo
             border_px = int(border_width * 2)
             if border_px > 0:
                 img = ImageOps.expand(img, border=border_px, fill='white')
@@ -209,18 +222,14 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             img.save(img_byte, format="PNG")
             img_byte.seek(0)
             
-            p = cell_img.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            # Rimuove spaziatura paragrafo per centratura pura
-            p.paragraph_format.space_before = Pt(0)
-            p.paragraph_format.space_after = Pt(0)
-            
-            run = p.add_run()
+            # Inserimento foto (La cella è alta 4.5cm, foto larga 3.5cm -> rimane margine)
+            run = p_img.add_run()
             run.add_picture(img_byte, width=Cm(3.5))
         except: pass
         
-    # TESTO HEADER
+    # --- TESTO HEADER ---
     p_name = cell_txt.paragraphs[0]
+    # Rimuoviamo spaziatura anche qui per centrare rispetto alla cella
     p_name.paragraph_format.space_before = Pt(0)
     p_name.paragraph_format.space_after = Pt(0)
     
@@ -231,13 +240,14 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     
     p_cont = cell_txt.add_paragraph(data['personal_info']['contact_line'])
     p_cont.paragraph_format.space_before = Pt(4)
+    p_cont.paragraph_format.space_after = Pt(0)
     run_cont = p_cont.runs[0]
     run_cont.font.size = Pt(10)
     run_cont.font.color.rgb = RGBColor(230, 230, 230)
     
     doc.add_paragraph().space_after = Pt(12)
     
-    # --- BODY (Con Titoli Hardcoded) ---
+    # --- BODY ---
     titles = SECTION_TITLES[lang_code]
     
     # Profilo
@@ -253,7 +263,7 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             p.paragraph_format.space_after = Pt(2)
             runner = p.add_run(f"{exp['role']} | {exp['company']}")
             runner.bold = True
-            runner.font.color.rgb = RGBColor(32, 84, 125) # Blu
+            runner.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
             
             p2 = doc.add_paragraph(exp['dates'])
             p2.runs[0].italic = True
@@ -331,13 +341,10 @@ if st.session_state.generated_data:
     t1, t2 = st.tabs(["CV", "Lettera"])
     
     with t1:
-        # Preview HTML (semplificata)
-        if u_photo:
-            b64 = get_image_base64(u_photo, b_width)
-            st.image(f"data:image/png;base64,{b64}", width=100)
-        
+        # Preview HTML (Semplificata per velocità)
         st.subheader(d['personal_info']['name'])
         st.write(d['summary_text'])
+        st.divider()
         
         docx = create_cv_docx(d, u_photo, b_width, lang_code)
         st.download_button(ui["dl_cv"], docx, "CV.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
