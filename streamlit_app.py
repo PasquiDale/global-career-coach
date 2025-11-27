@@ -179,6 +179,7 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     section.right_margin = Cm(1.27)
     
     # --- HEADER TABLE ---
+    # Creiamo una tabella per il banner blu
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
@@ -187,11 +188,12 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     table.columns[1].width = Cm(13.0) # Colonna Testo
     
     # === ALTEZZA RIGA ESATTA (FIX CRITICO PER AVVOLGIMENTO) ===
-    # 2.0 Pollici = 5.08 cm (Banner). Foto = 1.3 Pollici = 3.3 cm.
-    # Risultato: ~0.8cm di spazio sopra e ~0.8cm sotto.
+    # 2.3 Pollici = 5.84 cm (Banner alto e imponente)
+    # L'immagine sarà alta 1.4 Pollici = 3.55 cm
+    # Spazio totale vuoto: 2.3 cm. Diviso per 2 = 1.15 cm sopra e sotto.
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
-    row.height = Inches(2.0)
+    row.height = Inches(2.3)
     
     cell_img = table.cell(0, 0)
     cell_txt = table.cell(0, 1)
@@ -227,9 +229,9 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             img.save(img_byte, format="PNG")
             img_byte.seek(0)
             
-            # Inserimento foto a 1.2 pollici (minore dell'altezza riga 2.0)
+            # Inserimento foto impostando SOLO l'altezza per mantenere aspect ratio
             run = p_img.add_run()
-            run.add_picture(img_byte, width=Inches(1.2))
+            run.add_picture(img_byte, height=Inches(1.4)) 
         except: pass
         
     # --- TESTO HEADER ---
@@ -250,13 +252,15 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     
     doc.add_paragraph().space_after = Pt(12)
     
-    # --- BODY ---
+    # --- BODY (Con Titoli Hardcoded) ---
     titles = SECTION_TITLES[lang_code]
     
+    # Profilo
     if data.get('summary_text'):
         add_section_header(doc, titles['summary'])
         doc.add_paragraph(data['summary_text'])
     
+    # Esperienza
     if data.get('experience'):
         add_section_header(doc, titles['exp'])
         for exp in data['experience']:
@@ -272,6 +276,7 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             
             doc.add_paragraph(exp['description']).paragraph_format.space_after = Pt(8)
             
+    # Formazione
     if data.get('education'):
         add_section_header(doc, titles['edu'])
         for edu in data['education']:
@@ -279,6 +284,7 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             p.runs[0].bold = True
             doc.add_paragraph(edu['dates']).runs[0].italic = True
             
+    # Skills
     if data.get('skills_list'):
         add_section_header(doc, titles['skills'])
         doc.add_paragraph(", ".join(data['skills_list']))
@@ -299,6 +305,7 @@ def create_letter_docx(text):
 
 # --- 7. UI ---
 
+# Sidebar
 with st.sidebar:
     st.title("⚙️ Setup")
     selected_lang_name = st.selectbox("Lingua / Language", list(LANG_CODES.keys()))
@@ -313,6 +320,7 @@ with st.sidebar:
     if u_photo:
         st.image(u_photo, width=120)
 
+# Main
 st.title(f"🚀 {ui['title']}")
 
 c1, c2 = st.columns(2)
@@ -332,11 +340,13 @@ if st.button(ui["btn"], type="primary", use_container_width=True):
                 st.session_state.generated_data = data
                 st.success("OK!")
 
+# Output
 if st.session_state.generated_data:
     d = st.session_state.generated_data
     t1, t2 = st.tabs(["CV", "Lettera"])
     
     with t1:
+        # Preview HTML (Semplificata per velocità)
         st.subheader(d['personal_info']['name'])
         st.write(d['summary_text'])
         st.divider()
