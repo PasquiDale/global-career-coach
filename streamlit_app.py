@@ -14,12 +14,14 @@ import pypdf
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Career Coach Pro", page_icon="🚀", layout="wide")
 
-# --- CSS ---
+# --- CSS AVANZATO (Sovrascrittura Interfaccia) ---
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden;} 
     header {visibility: hidden;}
+    
+    /* Box Anteprima Foto */
     .photo-preview {
         background-color: #2b2b2b;
         padding: 15px;
@@ -28,13 +30,25 @@ st.markdown("""
         margin-bottom: 10px;
         border: 1px solid #555;
     }
-    .stFileUploader label {
-        font-size: 0px; 
+    
+    /* Nascondiamo completamente il testo standard di Streamlit uploader */
+    [data-testid='stFileUploader'] section {
+        padding: 20px;
     }
-    .upload-label {
+    [data-testid='stFileUploader'] section > div {
+        padding-top: 10px;
+    }
+    /* Nascondiamo la label piccola */
+    .stFileUploader label {
+        display: none;
+    }
+    /* Etichette personalizzate grandi */
+    .custom-label {
         font-size: 18px;
-        font-weight: bold;
-        margin-bottom: 5px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+        color: #333;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -78,7 +92,7 @@ def add_bottom_border(paragraph):
     bottom.set(qn('w:val'), 'single')
     bottom.set(qn('w:sz'), '6')
     bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), '2c5f85') 
+    bottom.set(qn('w:color'), '2c5f85')
     pbdr.append(bottom)
     pPr.append(pbdr)
 
@@ -95,34 +109,34 @@ def get_ai(prompt):
 # --- TRADUZIONI ---
 trans = {
     "Deutsch": {
-        "step1": "1. Foto", "step2": "2. Lebenslauf (PDF)", 
+        "step1": "1. Foto hochladen", "step2": "2. Lebenslauf (PDF) hochladen", 
         "gen": "CV Generieren", "load": "Design wird erstellt...", "bord": "Rahmen", 
         "dl_btn": "Word Herunterladen", "preview": "Vorschau", "done": "Fertig!", 
-        "txt_up": "PDF hier hochladen", "txt_img": "Foto hier hochladen"
+        "txt_up": "Klicken Sie hier, um das PDF hochzuladen", "txt_img": "Klicken Sie hier, um das Foto hochzuladen"
     },
     "Italiano": {
-        "step1": "1. Foto", "step2": "2. CV (PDF)", 
+        "step1": "1. Carica Foto", "step2": "2. Carica CV (PDF)", 
         "gen": "Genera CV", "load": "Creazione Design...", "bord": "Bordo", 
         "dl_btn": "Scarica Word", "preview": "Anteprima", "done": "Fatto!", 
-        "txt_up": "Carica PDF qui", "txt_img": "Carica Foto qui"
+        "txt_up": "Clicca qui per caricare il PDF", "txt_img": "Clicca qui per caricare la Foto"
     },
     "English": {
-        "step1": "1. Photo", "step2": "2. CV (PDF)", 
+        "step1": "1. Upload Photo", "step2": "2. Upload CV (PDF)", 
         "gen": "Generate CV", "load": "Creating Design...", "bord": "Border", 
         "dl_btn": "Download Word", "preview": "Preview", "done": "Done!", 
-        "txt_up": "Upload PDF here", "txt_img": "Upload Photo here"
+        "txt_up": "Click here to upload PDF", "txt_img": "Click here to upload Photo"
     },
     "Español": {
-        "step1": "1. Foto", "step2": "2. CV (PDF)", 
+        "step1": "1. Subir Foto", "step2": "2. Subir CV", 
         "gen": "Generar CV", "load": "Creando...", "bord": "Borde", 
         "dl_btn": "Descargar Word", "preview": "Vista Previa", "done": "¡Hecho!", 
-        "txt_up": "Sube PDF aquí", "txt_img": "Sube Foto aquí"
+        "txt_up": "Clic aquí para subir PDF", "txt_img": "Clic aquí para subir Foto"
     },
     "Português": {
-        "step1": "1. Foto", "step2": "2. CV (PDF)", 
+        "step1": "1. Enviar Foto", "step2": "2. Enviar CV", 
         "gen": "Gerar CV", "load": "Criando...", "bord": "Borda", 
         "dl_btn": "Baixar Word", "preview": "Visualização", "done": "Pronto!", 
-        "txt_up": "Envie PDF aqui", "txt_img": "Envie Foto aqui"
+        "txt_up": "Clique aqui para enviar PDF", "txt_img": "Clique aqui para enviar Foto"
     }
 }
 t = trans[lang]
@@ -131,10 +145,10 @@ t = trans[lang]
 st.title("Global Career Coach 🚀")
 
 # STEP 1: FOTO
-st.subheader(t["step1"])
 c1, c2 = st.columns([1, 2])
 with c1:
-    st.markdown(f"<div class='upload-label'>{t['txt_img']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='custom-label'>{t['step1']}</div>", unsafe_allow_html=True)
+    st.caption(t['txt_img'])
     f_img = st.file_uploader("Upload1", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
     border_val = st.slider(t["bord"], 0, 50, 15)
 
@@ -151,8 +165,8 @@ with c2:
 st.divider()
 
 # STEP 2: PDF
-st.subheader(t["step2"])
-st.markdown(f"<div class='upload-label'>{t['txt_up']}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='custom-label'>{t['step2']}</div>", unsafe_allow_html=True)
+st.caption(t['txt_up'])
 f_pdf = st.file_uploader("Upload2", type=["pdf"], label_visibility="collapsed")
 
 if st.button(t["gen"], type="primary"):
@@ -166,25 +180,21 @@ if st.button(t["gen"], type="primary"):
             
             with st.spinner(t["load"]):
                 # 1. HEADER DATA
-                h_prompt = f"""
-                Estrai i dati ESATTI. Se mancano, lascia vuoto.
-                FORMATO: Nome Cognome|Indirizzo|Telefono|Email
-                TESTO: {txt_in[:2000]}
-                """
+                h_prompt = f"Estrai: Nome Cognome | Indirizzo | Telefono | Email.\nTESTO: {txt_in[:2000]}"
                 h_data = get_ai(h_prompt).strip()
                 
                 # 2. BODY CONTENT
                 b_prompt = f"""
                 Sei un esperto HR. Riscrivi il CV in {lang}.
                 REGOLE:
-                1. NO frasi introduttive (inizia col primo titolo).
-                2. NO dati di contatto o nome (sono già nel banner).
-                3. TITOLI SEZIONI: Tutto MAIUSCOLO.
+                1. NO frasi introduttive.
+                2. NO dati di contatto (già nel banner).
+                3. TITOLI MAIUSCOLI.
                 TESTO: {txt_in}
                 """
                 b_content = clean_text(get_ai(b_prompt))
 
-                # --- WORD GENERATOR ---
+                # --- WORD GENERATION ---
                 doc = Document()
                 section = doc.sections[0]
                 section.top_margin = Cm(1.0)
@@ -193,7 +203,6 @@ if st.button(t["gen"], type="primary"):
                 
                 BANNER_COLOR = "2c5f85"
 
-                # TABELLA BANNER
                 if proc_img:
                     tbl = doc.add_table(rows=1, cols=2)
                     tbl.columns[0].width = Cm(4.0)
@@ -202,14 +211,14 @@ if st.button(t["gen"], type="primary"):
                     set_cell_bg(c_img, BANNER_COLOR)
                     set_cell_bg(c_txt, BANNER_COLOR)
                     
-                    # --- FIX CENTRATURA FOTO ---
+                    # --- FOTO CENTRATA CON PADDING ---
                     c_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                     p_img = c_img.paragraphs[0]
                     p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    # RIMUOVO SPAZI PARAGRAFO PER CENTRATURA PERFETTA
-                    p_img.paragraph_format.space_before = Pt(0)
-                    p_img.paragraph_format.space_after = Pt(0)
-                    p_img.paragraph_format.line_spacing = 1.0
+                    
+                    # QUI STA LA MAGIA DEL MARGINE
+                    p_img.paragraph_format.space_before = Pt(10) # Spazio SOPRA la foto (dentro il blu)
+                    p_img.paragraph_format.space_after = Pt(10)  # Spazio SOTTO la foto (dentro il blu)
                     
                     run = p_img.add_run()
                     ib = io.BytesIO()
@@ -228,10 +237,9 @@ if st.button(t["gen"], type="primary"):
                 email = parts[3].strip() if len(parts)>3 else ""
                 contact_line = f"{tel}  •  {email}"
 
-                # TESTO BANNER (Centrato Verticalmente)
+                # TESTO BANNER
                 c_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                 
-                # RIGA 1: Nome
                 p1 = c_txt.paragraphs[0]
                 if not proc_img: p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 r1 = p1.add_run(name)
@@ -240,7 +248,6 @@ if st.button(t["gen"], type="primary"):
                 r1.bold = True
                 p1.paragraph_format.space_after = Pt(2) 
                 
-                # RIGA 2: Indirizzo
                 p2 = c_txt.add_paragraph()
                 if not proc_img: p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 r2 = p2.add_run(addr)
@@ -248,7 +255,6 @@ if st.button(t["gen"], type="primary"):
                 r2.font.color.rgb = RGBColor(230,230,230)
                 p2.paragraph_format.space_after = Pt(0)
                 
-                # RIGA 3: Contatti
                 p3 = c_txt.add_paragraph()
                 if not proc_img: p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 r3 = p3.add_run(contact_line)
@@ -258,15 +264,11 @@ if st.button(t["gen"], type="primary"):
 
                 doc.add_paragraph().space_after = Pt(10)
                 
-                # CORPO DEL CV
                 for line in b_content.split('\n'):
                     line = line.strip()
                     if not line: continue
-                    
-                    # Evita duplicati header nel corpo (Filtro Extra)
                     if name in line or email in line: continue 
 
-                    # Titoli
                     if len(line)<60 and line.isupper() and any(c.isalpha() for c in line) and "@" not in line:
                         p = doc.add_paragraph()
                         p.space_before = Pt(14)
