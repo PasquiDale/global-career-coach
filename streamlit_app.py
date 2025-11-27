@@ -7,37 +7,37 @@ import json
 import pypdf
 import re
 
-# --- CONFIGURAZIONE PAGINA ---
+# --- 1. CONFIGURAZIONE PAGINA E STATO ---
 st.set_page_config(
-    page_title="Career AI Assistant",
+    page_title="AI Career Assistant",
     page_icon="🚀",
     layout="wide"
 )
 
-# --- GESTIONE STATO (SESSION STATE) ---
-# Fondamentale per non perdere i dati durante i re-run di Streamlit
-if "cv_text_original" not in st.session_state:
-    st.session_state.cv_text_original = ""
+# Inizializzazione Session State (Fondamentale per non perdere i dati al reload)
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
-if "generated_cv" not in st.session_state:
-    st.session_state.generated_cv = None
-if "generated_letter" not in st.session_state:
-    st.session_state.generated_letter = None
+if "cv_text_extracted" not in st.session_state:
+    st.session_state.cv_text_extracted = ""
+if "generated_content" not in st.session_state:
+    st.session_state.generated_content = None
 
-# --- GESTIONE API KEY (DA SECRETS) ---
+# --- 2. CONFIGURAZIONE API GOOGLE (GEMINI) ---
 try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
+    # Recupero chiave ESATTA come richiesto
+    api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error("🚨 Errore Critico: Chiave API mancante nei Secrets.")
-    st.info("Configura 'GOOGLE_API_KEY' nelle impostazioni avanzate di Streamlit Cloud.")
-    st.stop() # Ferma l'esecuzione se manca la chiave
+    st.error("🚨 Errore Critico: La chiave 'GEMINI_API_KEY' non è stata trovata nei Secrets di Streamlit.")
+    st.stop()
+except Exception as e:
+    st.error(f"🚨 Errore di configurazione API: {e}")
+    st.stop()
 
-# --- FUNZIONI DI UTILITÀ ---
+# --- 3. FUNZIONI DI UTILITÀ ---
 
 def extract_text_from_pdf(uploaded_file):
-    """Estrae testo puro da un file PDF caricato."""
+    """Estrae il testo grezzo dal PDF."""
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
@@ -45,174 +45,175 @@ def extract_text_from_pdf(uploaded_file):
             text += page.extract_text() + "\n"
         return text
     except Exception as e:
-        st.error(f"Errore nella lettura del PDF: {e}")
+        st.error(f"Errore lettura PDF: {e}")
         return None
 
 def clean_markdown_for_word(text):
     """
-    Pulisce il testo dai marcatori Markdown (**, ##, etc) per renderlo
-    adatto a un documento Word formale.
+    Rimuove la sintassi Markdown per rendere il file Word pulito e professionale.
     """
     if not text: return ""
-    # Rimuove bold (**)
-    text = text.replace("**", "")
-    # Rimuove intestazioni markdown (## )
-    text = text.replace("## ", "").replace("# ", "")
-    return text
+    
+    # Rimuove il grassetto (**testo**) mantenendo il testo
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    # Rimuove il corsivo (*testo*)
+    text = re.sub(r'\*(.*?)\*', r'\1', text)
+    # Rimuove i titoli Markdown (## Titolo)
+    text = re.sub(r'#+\s', '', text)
+    # Rimuove bullet points markdown se necessario, o li lascia per Word
+    # Qui puliamo eventuali caratteri strani residui
+    return text.strip()
 
 def create_docx(text_content):
-    """
-    Crea un oggetto BytesIO contenente il file .docx formattato.
-    """
+    """Genera un file .docx in memoria partendo dal testo pulito."""
     doc = Document()
     
-    # Stile di base
+    # Impostazioni stile base
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Calibri'
     font.size = Pt(11)
-
-    # Pulizia del testo e inserimento nel documento
+    
+    # Pulizia del testo dai simboli markdown
     clean_text = clean_markdown_for_word(text_content)
     
-    # Aggiunge i paragrafi gestendo le nuove righe
+    # Aggiunta paragrafi
     for line in clean_text.split('\n'):
-        if line.strip():
+        line = line.strip()
+        if line:
             doc.add_paragraph(line)
-
-    # Salvataggio in memoria buffer
+            
+    # Salvataggio nel buffer
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-def generate_ai_content(cv_text, job_desc):
+def generate_with_gemini(cv_text, job_desc):
     """
-    Chiama Gemini 3.0 Pro per generare CV e Lettera in formato JSON.
+    Chiama Gemini 3.0 Pro per elaborare i contenuti in JSON.
     """
-    model = genai.GenerativeModel("gemini-1.5-pro") # Nota: Usiamo 1.5 Pro se 3.0 non è ancora in whitelist pubblica, altrimenti sostituire con "gemini-3.0-pro"
+    # Configurazione Modello
+    model = genai.GenerativeModel("gemini-1.5-pro") 
+    # NOTA: Uso "gemini-1.5-pro" perché "gemini-3.0-pro" non è ancora un nome standard pubblico stabile API.
+    # Se hai accesso alla beta privata 3.0, cambia la stringa sopra in "gemini-3.0-pro-preview" o simile.
+    # Per stabilità ora uso il modello Pro più recente disponibile pubblicamente.
     
     prompt = f"""
-    Sei un esperto selezionatore del personale e career coach.
+    Sei un Career Coach esperto. Analizza il seguente CV e l'Annuncio di lavoro.
     
-    INPUT:
-    1. TESTO CV ORIGINALE:
+    [CV DEL CANDIDATO]:
     {cv_text}
     
-    2. ANNUNCIO DI LAVORO (JOB DESCRIPTION):
+    [ANNUNCIO DI LAVORO]:
     {job_desc}
     
-    COMPITO:
-    Devi generare due testi distinti in base all'annuncio fornito:
-    1. Una revisione del CV che evidenzi le esperienze pertinenti per questo lavoro specifico.
-    2. Una lettera di presentazione altamente persuasiva e personalizzata.
+    [COMPITO]:
+    1. Riscrivi il CV migliorandolo, rendendolo professionale e mirato per l'annuncio.
+    2. Scrivi una Lettera di Presentazione persuasiva che colleghi le esperienze del candidato ai requisiti.
     
-    FORMATO OUTPUT RICHIESTO (JSON):
-    Rispondi SOLAMENTE con un oggetto JSON valido contenente esattamente queste due chiavi:
+    [FORMATO OUTPUT]:
+    Devi restituire SOLO un JSON valido (senza markdown ```json) con questa struttura esatta:
     {{
-        "cv_revisionato": "Testo completo del CV revisionato...",
-        "lettera_presentazione": "Testo completo della lettera..."
+        "cv_content": "...testo completo del cv...",
+        "cover_letter_content": "...testo completo della lettera..."
     }}
-    Non aggiungere markdown (```json) all'inizio o alla fine. Solo il JSON puro.
     """
     
     try:
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        st.error(f"Errore durante la generazione AI: {e}")
+        st.error(f"Errore durante la generazione con Gemini: {e}")
         return None
 
-# --- INTERFACCIA UTENTE ---
+# --- 4. INTERFACCIA UTENTE (UI) ---
 
-st.title("📄 Career AI: CV & Cover Letter Generator")
-st.markdown("Carica il tuo CV e l'annuncio per ottenere documenti ottimizzati pronti per l'invio.")
+st.title("🤖 AI Career Assistant")
+st.markdown("Carica il tuo CV e l'annuncio per generare documenti professionali in Word.")
 
-col1, col2 = st.columns(2)
+# Layout a due colonne per gli input
+col_input1, col_input2 = st.columns(2)
 
-with col1:
-    st.subheader("1. Il tuo CV")
-    uploaded_file = st.file_uploader("Carica il tuo CV (PDF)", type="pdf")
-    
-    if uploaded_file is not None:
-        extracted_text = extract_text_from_pdf(uploaded_file)
-        if extracted_text:
-            st.session_state.cv_text_original = extracted_text
-            st.success("✅ CV caricato e letto correttamente.")
+with col_input1:
+    st.subheader("1. Carica il CV")
+    uploaded_file = st.file_uploader("Seleziona il tuo CV (PDF)", type="pdf")
+    if uploaded_file:
+        extracted = extract_text_from_pdf(uploaded_file)
+        if extracted:
+            st.session_state.cv_text_extracted = extracted
+            st.success("✅ CV letto con successo")
 
-with col2:
-    st.subheader("2. L'Annuncio")
-    # Colleghiamo la text_area al session_state per non perdere il testo
-    job_input = st.text_area(
-        "Incolla qui il testo dell'Offerta di Lavoro", 
+with col_input2:
+    st.subheader("2. Annuncio di Lavoro")
+    # Text area collegata a session_state per non perdere il testo
+    st.text_area(
+        "Inserisci qui il testo dell'offerta",
         height=200,
-        placeholder="Copia qui la Job Description...",
-        key="job_input_area" 
+        key="job_description", # Questo collega automaticamente il widget a st.session_state.job_description
+        placeholder="Incolla qui la Job Description..."
     )
-    # Aggiorniamo lo stato manuale se necessario, ma usando key='...' lo fa streamlit in automatico
-    if job_input:
-        st.session_state.job_description = job_input
 
-# --- BOTTONE DI AZIONE ---
 st.markdown("---")
-generate_btn = st.button("✨ Genera Documenti Ottimizzati", type="primary", use_container_width=True)
 
-if generate_btn:
-    if not st.session_state.cv_text_original:
-        st.warning("⚠️ Per favore carica prima il tuo CV.")
+# Bottone di Generazione
+if st.button("✨ Genera Documenti", type="primary", use_container_width=True):
+    if not st.session_state.cv_text_extracted:
+        st.warning("⚠️ Manca il CV. Carica un file PDF.")
     elif not st.session_state.job_description:
-        st.warning("⚠️ Per favore incolla l'annuncio di lavoro.")
+        st.warning("⚠️ Manca l'Annuncio di Lavoro.")
     else:
-        with st.spinner("L'AI sta analizzando il profilo e scrivendo i documenti..."):
-            json_response_text = generate_ai_content(
-                st.session_state.cv_text_original, 
+        with st.spinner("Gemini sta elaborando il tuo profilo..."):
+            raw_response = generate_with_gemini(
+                st.session_state.cv_text_extracted,
                 st.session_state.job_description
             )
             
-            if json_response_text:
+            if raw_response:
                 try:
-                    # Pulizia nel caso il modello inserisca backticks
-                    clean_json = json_response_text.replace("```json", "").replace("```", "").strip()
+                    # Pulizia stringa JSON (rimozione eventuali backticks)
+                    clean_json = raw_response.replace("```json", "").replace("```", "").strip()
                     data = json.loads(clean_json)
-                    
-                    st.session_state.generated_cv = data.get("cv_revisionato", "")
-                    st.session_state.generated_letter = data.get("lettera_presentazione", "")
-                    st.success("Analisi completata!")
-                    
+                    st.session_state.generated_content = data
+                    st.success("Elaborazione completata!")
                 except json.JSONDecodeError:
-                    st.error("Errore nel parsing della risposta AI. Riprova.")
+                    st.error("Errore nella lettura della risposta AI. Riprova.")
 
-# --- RISULTATI E DOWNLOAD ---
-if st.session_state.generated_cv and st.session_state.generated_letter:
+# --- 5. OUTPUT VISIVO E DOWNLOAD ---
+
+if st.session_state.generated_content:
+    st.divider()
+    st.subheader("📄 I tuoi Documenti")
     
-    tab_cv, tab_lettera = st.tabs(["📄 CV Ottimizzato", "✉️ Lettera di Presentazione"])
+    cv_content = st.session_state.generated_content.get("cv_content", "")
+    cl_content = st.session_state.generated_content.get("cover_letter_content", "")
     
-    with tab_cv:
-        st.subheader("Anteprima CV")
-        st.markdown(st.session_state.generated_cv) # Markdown per anteprima visiva
+    tab1, tab2 = st.tabs(["CV Revisionato", "Lettera di Presentazione"])
+    
+    # TAB 1: CV
+    with tab1:
+        st.markdown("### Anteprima CV")
+        st.markdown(cv_content) # Mostra anteprima con formattazione
         
-        # Creazione file Word
-        docx_cv = create_docx(st.session_state.generated_cv)
-        
+        # Genera Word
+        docx_cv = create_docx(cv_content)
         st.download_button(
             label="⬇️ Scarica CV in Word (.docx)",
             data=docx_cv,
-            file_name="CV_Ottimizzato.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_cv"
+            file_name="CV_Revisionato.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         
-    with tab_lettera:
-        st.subheader("Anteprima Lettera")
-        st.markdown(st.session_state.generated_letter) # Markdown per anteprima visiva
+    # TAB 2: LETTERA
+    with tab2:
+        st.markdown("### Anteprima Lettera")
+        st.markdown(cl_content) # Mostra anteprima con formattazione
         
-        # Creazione file Word
-        docx_letter = create_docx(st.session_state.generated_letter)
-        
+        # Genera Word
+        docx_cl = create_docx(cl_content)
         st.download_button(
             label="⬇️ Scarica Lettera in Word (.docx)",
-            data=docx_letter,
+            data=docx_cl,
             file_name="Lettera_Presentazione.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_letter"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
