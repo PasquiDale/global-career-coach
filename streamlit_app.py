@@ -13,12 +13,13 @@ import re
 import base64
 from PIL import Image, ImageOps
 
-# --- 1. SETUP (SIDEBAR EXPANDED FIX) ---
+# --- 1. SETUP CRITICO (SIDEBAR FIX) ---
+# Questa deve essere ASSOLUTAMENTE la prima istruzione Streamlit
 st.set_page_config(
     page_title="Global Career AI", 
     page_icon="👔", 
     layout="wide",
-    initial_sidebar_state="expanded" # FIX: La barra laterale parte sempre aperta
+    initial_sidebar_state="expanded"  # <--- FIX: LA BARRA LATERALE ORA SARÀ APERTA DI DEFAULT
 )
 
 # CSS per pulizia interfaccia
@@ -51,7 +52,7 @@ LANG_MAP = {
     "Português": "pt"
 }
 
-# Traduzioni Complete (STEALTH MODE - No "AI" in tedesco)
+# Traduzioni Complete
 TRANSLATIONS = {
     "it": {
         "language_label": "Seleziona Lingua", "sidebar_title": "Impostazioni Profilo", "ph_lbl": "Foto Profilo", 
@@ -138,18 +139,6 @@ except KeyError:
 
 # --- 4. FUNZIONI HELPER ---
 
-def process_image(uploaded_file, border_width_px):
-    if not uploaded_file: return None
-    try:
-        uploaded_file.seek(0)
-        img = Image.open(uploaded_file)
-        if img.mode in ('RGBA', 'P'):
-            img = img.convert('RGB')
-        if border_width_px > 0:
-            img = ImageOps.expand(img, border=int(border_width_px * 2), fill='white')
-        return img
-    except: return None
-
 def set_cell_bg(cell, color_hex):
     """Sfondo colorato cella Word via XML"""
     tcPr = cell._element.get_or_add_tcPr()
@@ -168,8 +157,9 @@ def add_section_header(doc, text):
     run = p.add_run(text)
     run.bold = True
     run.font.size = Pt(12)
-    run.font.color.rgb = RGBColor(32, 84, 125) # Blu #20547d
+    run.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
     
+    # Border Bottom (XML hack)
     pPr = p._p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
@@ -186,7 +176,20 @@ def extract_pdf_text(file):
         return "\n".join([p.extract_text() for p in reader.pages])
     except: return ""
 
+def process_image(uploaded_file, border_width_px):
+    if not uploaded_file: return None
+    try:
+        uploaded_file.seek(0)
+        img = Image.open(uploaded_file)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        if border_width_px > 0:
+            img = ImageOps.expand(img, border=int(border_width_px * 2), fill='white')
+        return img
+    except: return None
+
 def get_image_base64(uploaded_file, border_width):
+    # Funzione per visualizzazione a schermo (se serve)
     if not uploaded_file: return None
     try:
         image = Image.open(uploaded_file)
@@ -203,7 +206,7 @@ def get_gemini_response(cv_text, job_desc, lang_code):
     try:
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
-        lang_prompt = f"Target Language Code: {lang_code}."
+        lang_prompt = f"Target Language: {lang_code}."
         if lang_code == "de_ch":
             lang_prompt += " IMPORTANT: Use Swiss Standard German spelling (use 'ss' instead of 'ß')."
 
@@ -244,7 +247,7 @@ def get_gemini_response(cv_text, job_desc, lang_code):
         st.error(f"AI Error: {e}")
         return None
 
-# --- 6. WORD GENERATION (PIXEL PERFECT LAYOUT) ---
+# --- 6. WORD GENERATION (PIXEL PERFECT LAYOUT COMPACT) ---
 
 def create_cv_docx(data, pil_image, lang_code):
     doc = Document()
@@ -259,9 +262,10 @@ def create_cv_docx(data, pil_image, lang_code):
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # === COLONNE OTTIMIZZATE (FIX SPAZI) ===
-    table.columns[0].width = Inches(1.4)  # Foto (Più stretta)
-    table.columns[1].width = Inches(5.8)  # Testo (Molto largo)
+    # === COLONNE OTTIMIZZATE (COMPATTE) ===
+    # Ridotto spazio foto (1.4) e allargato testo (5.8)
+    table.columns[0].width = Inches(1.4) 
+    table.columns[1].width = Inches(5.8)
     
     # Altezza Riga Esatta
     row = table.rows[0]
@@ -391,10 +395,10 @@ with st.sidebar:
     st.markdown("---")
     st.subheader(t['sidebar_title'])
     
-    u_photo = st.file_uploader(t['ph_lbl'], type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
+    u_photo = st.file_uploader(t['upload_photo'], type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
     
-    st.write(t['bord_lbl'])
-    # Slider a 50px
+    st.write(t['border_width'])
+    # Slider max 50px
     b_width = st.slider("Slider_Border", 0, 50, 10, label_visibility="collapsed")
     
     processed_img = None
@@ -416,7 +420,7 @@ with c2:
     st.subheader(t['job_lbl'])
     job_desc = st.text_area("Job_Desc", height=150, label_visibility="collapsed")
 
-if st.button(t['btn'], type="primary", use_container_width=True):
+if st.button(t['generate_btn'], type="primary", use_container_width=True):
     if not u_cv or not job_desc:
         st.warning(t['warn_msg'])
     else:
@@ -426,7 +430,7 @@ if st.button(t['btn'], type="primary", use_container_width=True):
             
             if data:
                 st.session_state.generated_data = data
-                st.success(t['success'])
+                st.success(t['success_msg'])
 
 # Output Tabs
 if st.session_state.generated_data:
