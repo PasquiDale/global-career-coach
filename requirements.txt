@@ -1,6 +1,5 @@
-streamlit>=1.30.0
-python-docx
-Pillow
-pypdf
-python-dotenv
+streamlit
 google-generativeai>=0.7.2
+python-docx
+pypdf
+Pillow
