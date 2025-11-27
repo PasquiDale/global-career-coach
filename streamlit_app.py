@@ -14,9 +14,9 @@ import pypdf
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Career Coach Pro", page_icon="🚀", layout="wide")
 
-# --- MEMORIA DI SESSIONE (Il "Cervello" che ricorda il CV) ---
-if 'cv_text_memory' not in st.session_state:
-    st.session_state.cv_text_memory = ""
+# --- MEMORIA DI SESSIONE (Per ricordare il CV) ---
+if 'cv_content' not in st.session_state:
+    st.session_state.cv_content = ""
 
 # --- CSS ---
 st.markdown("""
@@ -40,13 +40,16 @@ st.markdown("""
 # --- AUTO-LOGIN ---
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
+# --- SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
     st.title("Career Coach")
     lang = st.selectbox("Lingua / Language", ["Deutsch", "Italiano", "English", "Español", "Português"])
     st.divider()
+    
     if not api_key:
         api_key = st.text_input("API Key", type="password")
+
     if api_key:
         try:
             genai.configure(api_key=api_key)
@@ -80,11 +83,6 @@ def add_bottom_border(paragraph):
 def clean_text(text):
     return text.replace("**", "").replace("###", "").replace("---", "").strip()
 
-def clean_header_data(text):
-    bad_words = ["Nome:", "Name:", "Indirizzo:", "Address:", "Email:", "Tel:", "**"]
-    for word in bad_words: text = text.replace(word, "")
-    return text.strip()
-
 def get_ai(prompt):
     try:
         model = genai.GenerativeModel('gemini-3-pro-preview')
@@ -95,52 +93,43 @@ def get_ai(prompt):
 # --- TRADUZIONI ---
 trans = {
     "Deutsch": {
-        "menu_cv": "1. Lebenslauf & Foto", "menu_cl": "2. Anschreiben",
+        "menu1": "1. Lebenslauf & Foto", "menu2": "2. Anschreiben",
         "step1": "Foto", "step2": "Lebenslauf (PDF)", "gen": "CV Generieren", 
-        "load": "Design wird erstellt...", "bord": "Rahmen", "dl_btn": "Word Herunterladen", 
+        "load": "Design wird erstellt...", "bord": "Rahmen", "dl_btn": "CV Herunterladen", 
         "txt_up": "PDF hier hochladen", "txt_img": "Foto hier hochladen",
-        "job_tit": "Stellenanzeige", "job_ph": "Fügen Sie hier die Stellenbeschreibung ein...",
-        "cl_gen": "Anschreiben Generieren", "cl_load": "Anschreiben wird geschrieben...",
-        "cl_done": "Anschreiben fertig!", "cl_dl": "Anschreiben Herunterladen",
-        "no_cv_warn": "⚠️ Bitte laden Sie zuerst Ihren Lebenslauf im Menü '1. Lebenslauf & Foto' hoch."
+        "job_tit": "Stellenanzeige hier einfügen", "job_btn": "Anschreiben erstellen", "job_dl": "Anschreiben Laden"
     },
     "Italiano": {
-        "menu_cv": "1. CV & Foto", "menu_cl": "2. Lettera Presentazione",
+        "menu1": "1. CV & Foto", "menu2": "2. Lettera Presentazione",
         "step1": "Foto", "step2": "CV (PDF)", "gen": "Genera CV", 
-        "load": "Creazione Design...", "bord": "Bordo", "dl_btn": "Scarica Word", 
+        "load": "Creazione Design...", "bord": "Bordo", "dl_btn": "Scarica CV Word", 
         "txt_up": "Carica PDF qui", "txt_img": "Carica Foto qui",
-        "job_tit": "Annuncio di Lavoro", "job_ph": "Incolla qui il testo dell'offerta di lavoro...",
-        "cl_gen": "Scrivi Lettera", "cl_load": "Scrittura lettera strategica in corso...",
-        "cl_done": "Lettera Pronta!", "cl_dl": "Scarica Lettera",
-        "no_cv_warn": "⚠️ Per favore carica prima il tuo CV nel menu '1. CV & Foto'."
+        "job_tit": "Incolla qui l'Annuncio di Lavoro", "job_btn": "Scrivi Lettera", "job_dl": "Scarica Lettera"
     },
     "English": {
-        "menu_cv": "1. CV & Photo", "menu_cl": "2. Cover Letter",
+        "menu1": "1. CV & Photo", "menu2": "2. Cover Letter",
         "step1": "Photo", "step2": "CV (PDF)", "gen": "Generate CV", 
-        "load": "Creating Design...", "bord": "Border", "dl_btn": "Download Word", 
+        "load": "Creating Design...", "bord": "Border", "dl_btn": "Download CV", 
         "txt_up": "Upload PDF here", "txt_img": "Upload Photo here",
-        "job_tit": "Job Description", "job_ph": "Paste the job ad here...",
-        "cl_gen": "Write Letter", "cl_load": "Writing strategic letter...",
-        "cl_done": "Letter Ready!", "cl_dl": "Download Letter",
-        "no_cv_warn": "⚠️ Please upload your CV first in the '1. CV & Photo' menu."
+        "job_tit": "Paste Job Description here", "job_btn": "Write Letter", "job_dl": "Download Letter"
     },
 }
-# Fallback
-t = trans.get(lang, trans["English"]) 
+t = trans.get(lang, trans["English"])
 
 # --- NAVIGAZIONE ---
-page = st.sidebar.radio("Menu", [t["menu_cv"], t["menu_cl"]])
+page = st.sidebar.radio("Menu", [t["menu1"], t["menu2"]])
 
 # ==========================================
-# PAGINA 1: CV & FOTO (La tua preferita)
+# PAGINA 1: CV & FOTO
 # ==========================================
-if page == t["menu_cv"]:
+if page == t["menu1"]:
     st.title("Global Career Coach 🚀")
-    
+
     # FOTO
+    st.subheader(t["step1"])
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.markdown(f"<div class='upload-label'>{t['step1']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='upload-label'>{t['txt_img']}</div>", unsafe_allow_html=True)
         f_img = st.file_uploader("Upload1", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
         border_val = st.slider(t["bord"], 0, 50, 15)
 
@@ -157,7 +146,8 @@ if page == t["menu_cv"]:
     st.divider()
 
     # PDF
-    st.markdown(f"<div class='upload-label'>{t['step2']}</div>", unsafe_allow_html=True)
+    st.subheader(t["step2"])
+    st.markdown(f"<div class='upload-label'>{t['txt_up']}</div>", unsafe_allow_html=True)
     f_pdf = st.file_uploader("Upload2", type=["pdf"], label_visibility="collapsed")
 
     if st.button(t["gen"], type="primary"):
@@ -169,19 +159,26 @@ if page == t["menu_cv"]:
                 txt_in = ""
                 for p in reader.pages: txt_in += p.extract_text()
                 
-                # SALVO IL TESTO IN MEMORIA PER DOPO!
-                st.session_state.cv_text_memory = txt_in
+                # SALVA IN MEMORIA PER LA LETTERA
+                st.session_state.cv_content = txt_in
                 
                 with st.spinner(t["load"]):
-                    # 1. HEADER
+                    # 1. HEADER DATA
                     h_prompt = f"Estrai: Nome Cognome | Indirizzo | Telefono | Email.\nTESTO: {txt_in[:2000]}"
-                    h_data = clean_header_data(get_ai(h_prompt).strip())
+                    h_data = get_ai(h_prompt).strip()
                     
-                    # 2. BODY
-                    b_prompt = f"Sei HR Expert. Riscrivi CV in {lang}. NO Intro. NO Contatti. TITOLI MAIUSCOLI.\nTESTO: {txt_in}"
+                    # 2. BODY CONTENT
+                    b_prompt = f"""
+                    Sei un esperto HR. Riscrivi il CV in {lang}.
+                    REGOLE:
+                    1. NO frasi introduttive.
+                    2. NO dati di contatto (già nel banner).
+                    3. TITOLI MAIUSCOLI.
+                    TESTO: {txt_in}
+                    """
                     b_content = clean_text(get_ai(b_prompt))
 
-                    # WORD
+                    # --- WORD GENERATION ---
                     doc = Document()
                     section = doc.sections[0]
                     section.top_margin = Cm(1.0)
@@ -190,6 +187,7 @@ if page == t["menu_cv"]:
                     
                     BANNER_COLOR = "2c5f85"
 
+                    # TABELLA
                     if proc_img:
                         tbl = doc.add_table(rows=1, cols=2)
                         tbl.columns[0].width = Cm(4.0)
@@ -198,6 +196,7 @@ if page == t["menu_cv"]:
                         set_cell_bg(c_img, BANNER_COLOR)
                         set_cell_bg(c_txt, BANNER_COLOR)
                         
+                        # Foto con padding
                         c_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                         p_img = c_img.paragraphs[0]
                         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -212,6 +211,7 @@ if page == t["menu_cv"]:
                         c_txt = tbl.cell(0,0)
                         set_cell_bg(c_txt, BANNER_COLOR)
 
+                    # Dati
                     parts = h_data.split('|')
                     name = parts[0].strip() if len(parts)>0 else "Name"
                     addr = parts[1].strip() if len(parts)>1 else ""
@@ -219,7 +219,9 @@ if page == t["menu_cv"]:
                     email = parts[3].strip() if len(parts)>3 else ""
                     contact_line = f"{tel}  •  {email}"
 
+                    # Testo Banner
                     c_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                    
                     p1 = c_txt.paragraphs[0]
                     if not proc_img: p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     r1 = p1.add_run(name)
@@ -244,9 +246,12 @@ if page == t["menu_cv"]:
 
                     doc.add_paragraph().space_after = Pt(10)
                     
+                    # Corpo
                     for line in b_content.split('\n'):
                         line = line.strip()
                         if not line: continue
+                        if name in line or email in line: continue
+
                         if len(line)<60 and line.isupper() and any(c.isalpha() for c in line) and "@" not in line:
                             p = doc.add_paragraph()
                             p.space_before = Pt(14)
@@ -263,6 +268,7 @@ if page == t["menu_cv"]:
 
                     bio = io.BytesIO()
                     doc.save(bio)
+                    st.balloons()
                     st.success("✅ OK!")
                     st.download_button(t["dl_btn"], bio.getvalue(), f"CV_{lang}.docx")
 
@@ -272,50 +278,33 @@ if page == t["menu_cv"]:
 # ==========================================
 # PAGINA 2: LETTERA DI PRESENTAZIONE
 # ==========================================
-elif page == t["menu_cl"]:
-    st.header(t["menu_cl"])
+elif page == t["menu2"]:
+    st.title("✍️ " + t["menu2"])
     
-    # Controllo se c'è un CV in memoria
-    if not st.session_state.cv_text_memory:
-        st.info(t["no_cv_warn"])
-        # Opzione di caricamento manuale se l'utente salta il passaggio 1
-        st.markdown("---")
-        st.caption("Oppure carica un CV qui:")
-        f_pdf_cl = st.file_uploader("Upload CV Manual", type=["pdf"], label_visibility="collapsed")
-        if f_pdf_cl:
-            reader = pypdf.PdfReader(f_pdf_cl)
-            for p in reader.pages: st.session_state.cv_text_memory += p.extract_text()
-            st.rerun() # Ricarica per nascondere l'uploader
+    if not st.session_state.cv_content:
+        st.info("⚠️ Carica prima il CV nella pagina '1. CV & Foto' per abilitare questa funzione.")
     else:
-        st.success("✅ CV caricato in memoria.")
+        st.success("✅ CV in memoria.")
         
-        st.subheader(t["job_tit"])
-        job_ad = st.text_area(t["job_ph"], height=200)
+        job_ad = st.text_area(t["job_tit"], height=250, placeholder="...")
         
-        if st.button(t["cl_gen"], type="primary"):
+        if st.button(t["job_btn"], type="primary"):
             if not job_ad:
-                st.error("Inserisci il testo dell'annuncio!")
+                st.error("Manca il testo dell'annuncio.")
             else:
-                with st.spinner(t["cl_load"]):
-                    # PROMPT LETTERA
+                with st.spinner("Gemini 3 Pro scrive..."):
                     prompt_cl = f"""
                     Sei un esperto di carriera. Scrivi una Lettera di Presentazione in {lang}.
                     
-                    INPUT:
-                    1. IL MIO CV: {st.session_state.cv_text_memory}
-                    2. L'ANNUNCIO DI LAVORO: {job_ad}
+                    IL MIO CV: {st.session_state.cv_content}
+                    L'ANNUNCIO: {job_ad}
                     
                     ISTRUZIONI:
-                    - Analizza le mie competenze nel CV e collegale ai requisiti dell'Annuncio.
-                    - Usa un tono professionale, persuasivo ed entusiasta.
-                    - Struttura standard: Intestazione, Saluto, Corpo (Perché io? Perché voi?), Conclusione.
-                    - Non inventare dati.
+                    - Collega le mie competenze ai requisiti dell'annuncio.
+                    - Tono professionale e persuasivo.
+                    - Formatta bene il testo.
                     """
                     
-                    cl_content = get_ai(prompt_cl)
-                    
-                    st.markdown("### Anteprima:")
-                    st.write(cl_content)
-                    
-                    # Download .txt (o Word semplice)
-                    st.download_button(t["cl_dl"], cl_content, f"CoverLetter_{lang}.txt")
+                    cl_text = get_ai(prompt_cl)
+                    st.markdown(cl_text)
+                    st.download_button(t["job_dl"], cl_text, f"CoverLetter_{lang}.txt")
