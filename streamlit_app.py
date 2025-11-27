@@ -13,16 +13,15 @@ import re
 import base64
 from PIL import Image, ImageOps
 
-# --- 1. SETUP CRITICO (SIDEBAR FIX) ---
-# Questa deve essere ASSOLUTAMENTE la prima istruzione Streamlit
+# --- 1. CONFIGURAZIONE PAGINA (CRITICO: PRIMA ISTRUZIONE) ---
 st.set_page_config(
-    page_title="Global Career AI", 
+    page_title="Global Career Coach", 
     page_icon="👔", 
-    layout="wide",
-    initial_sidebar_state="expanded"  # <--- FIX: LA BARRA LATERALE ORA SARÀ APERTA DI DEFAULT
+    layout="wide", 
+    initial_sidebar_state="expanded"
 )
 
-# CSS per pulizia interfaccia
+# CSS per pulizia visiva
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -40,7 +39,7 @@ if "generated_data" not in st.session_state:
 if "lang_code" not in st.session_state:
     st.session_state.lang_code = "it"
 
-# --- 2. DIZIONARI LINGUA & TRADUZIONI ---
+# --- 2. DIZIONARI COSTANTI (DEFINIZIONE ANTICIPATA) ---
 
 LANG_MAP = {
     "Italiano": "it",
@@ -52,70 +51,63 @@ LANG_MAP = {
     "Português": "pt"
 }
 
-# Traduzioni Complete
+# Traduzioni Complete e "Stealth" (No AI in tedesco)
 TRANSLATIONS = {
     "it": {
-        "language_label": "Seleziona Lingua", "sidebar_title": "Impostazioni Profilo", "ph_lbl": "Foto Profilo", 
-        "bord_lbl": "Spessore Bordo (px)", "preview_photo": "Anteprima", "main_title": "Generatore CV Professionale",
-        "upload_cv": "1. Carica il tuo CV (PDF)", "job_lbl": "2. Incolla l'Annuncio di Lavoro", 
-        "btn": "✨ Genera Documenti", "spinner_msg": "Analisi in corso... attendere...", 
-        "tab_cv": "CV Grafico", "tab_letter": "Lettera Presentazione", 
-        "download_cv": "Scarica CV (.docx)", "download_letter": "Scarica Lettera (.docx)",
-        "success": "Documenti creati con successo!", "error": "Errore", "warn_msg": "⚠️ Carica CV e Annuncio."
+        "language_label": "Seleziona Lingua", "sidebar_title": "Impostazioni Profilo", "upload_photo": "Carica Foto", 
+        "border_width": "Spessore bordo (px)", "preview_photo": "Anteprima", "main_title": "Generatore CV Professionale",
+        "upload_cv": "1. Carica il tuo CV (PDF)", "job_desc": "2. Incolla l'Annuncio di Lavoro", 
+        "generate_btn": "Genera Documenti", "spinner_msg": "Analisi in corso... attendere...", 
+        "tab_cv": "CV Grafico", "tab_letter": "Lettera Presentazione", "download_cv": "Scarica CV (.docx)", 
+        "download_letter": "Scarica Lettera (.docx)", "success": "Documenti creati con successo!", "error": "Errore"
     },
     "en_uk": {
-        "language_label": "Select Language", "sidebar_title": "Profile Settings", "ph_lbl": "Profile Photo", 
-        "bord_lbl": "Border Width (px)", "preview_photo": "Preview", "main_title": "Professional CV Generator",
-        "upload_cv": "1. Upload CV (PDF)", "job_lbl": "2. Paste Job Description", 
-        "btn": "✨ Generate Documents", "spinner_msg": "Analysis in progress... please wait...", 
-        "tab_cv": "Graphic CV", "tab_letter": "Cover Letter", 
-        "download_cv": "Download CV (.docx)", "download_letter": "Download Letter (.docx)",
-        "success": "Documents created successfully!", "error": "Error", "warn_msg": "⚠️ Please upload CV and Job Ad."
+        "language_label": "Select Language", "sidebar_title": "Profile Settings", "upload_photo": "Upload Photo", 
+        "border_width": "Border Width (px)", "preview_photo": "Preview", "main_title": "Professional CV Generator",
+        "upload_cv": "1. Upload CV (PDF)", "job_desc": "2. Paste Job Description", 
+        "generate_btn": "Generate Documents", "spinner_msg": "Analysis in progress...", 
+        "tab_cv": "Graphic CV", "tab_letter": "Cover Letter", "download_cv": "Download CV (.docx)", 
+        "download_letter": "Download Letter (.docx)", "success": "Documents created successfully!", "error": "Error"
     },
     "en_us": {
-        "language_label": "Select Language", "sidebar_title": "Profile Settings", "ph_lbl": "Profile Photo", 
-        "bord_lbl": "Border Width (px)", "preview_photo": "Preview", "main_title": "Professional Resume Generator",
-        "upload_cv": "1. Upload Resume (PDF)", "job_lbl": "2. Paste Job Description", 
-        "btn": "✨ Generate Documents", "spinner_msg": "Analysis in progress... please wait...", 
-        "tab_cv": "Graphic Resume", "tab_letter": "Cover Letter", 
-        "download_cv": "Download Resume (.docx)", "download_letter": "Download Letter (.docx)",
-        "success": "Documents created successfully!", "error": "Error", "warn_msg": "⚠️ Please upload Resume and Job Ad."
+        "language_label": "Select Language", "sidebar_title": "Profile Settings", "upload_photo": "Upload Photo", 
+        "border_width": "Border Width (px)", "preview_photo": "Preview", "main_title": "Professional Resume Generator",
+        "upload_cv": "1. Upload Resume (PDF)", "job_desc": "2. Paste Job Description", 
+        "generate_btn": "Generate Documents", "spinner_msg": "Analysis in progress...", 
+        "tab_cv": "Graphic Resume", "tab_letter": "Cover Letter", "download_cv": "Download Resume (.docx)", 
+        "download_letter": "Download Letter (.docx)", "success": "Documents created successfully!", "error": "Error"
     },
     "de_de": {
-        "language_label": "Sprache auswählen", "sidebar_title": "Profileinstellungen", "ph_lbl": "Profilbild", 
-        "bord_lbl": "Rahmenbreite (px)", "preview_photo": "Vorschau", "main_title": "Professioneller Lebenslauf-Generator",
-        "upload_cv": "1. Lebenslauf hochladen (PDF)", "job_lbl": "2. Stellenanzeige einfügen", 
-        "btn": "✨ Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...", 
-        "tab_cv": "Lebenslauf", "tab_letter": "Anschreiben", 
-        "download_cv": "Lebenslauf laden (.docx)", "download_letter": "Anschreiben laden (.docx)",
-        "success": "Dokumente erfolgreich erstellt!", "error": "Fehler", "warn_msg": "⚠️ Bitte CV und Anzeige hochladen."
+        "language_label": "Sprache auswählen", "sidebar_title": "Profileinstellungen", "upload_photo": "Foto hochladen", 
+        "border_width": "Rahmenbreite (px)", "preview_photo": "Vorschau", "main_title": "Professioneller Lebenslauf-Generator",
+        "upload_cv": "1. Lebenslauf hochladen (PDF)", "job_desc": "2. Stellenanzeige einfügen", 
+        "generate_btn": "Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...", 
+        "tab_cv": "Lebenslauf", "tab_letter": "Anschreiben", "download_cv": "Lebenslauf laden (.docx)", 
+        "download_letter": "Anschreiben laden (.docx)", "success": "Dokumente erfolgreich erstellt!", "error": "Fehler"
     },
     "de_ch": {
-        "language_label": "Sprache auswählen", "sidebar_title": "Profileinstellungen", "ph_lbl": "Profilbild", 
-        "bord_lbl": "Rahmenbreite (px)", "preview_photo": "Vorschau", "main_title": "Professioneller Lebenslauf-Generator",
-        "upload_cv": "1. Lebenslauf hochladen (PDF)", "job_lbl": "2. Stellenbeschrieb einfügen", 
-        "btn": "✨ Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...", 
-        "tab_cv": "Lebenslauf", "tab_letter": "Begleitschreiben", 
-        "download_cv": "Lebenslauf laden (.docx)", "download_letter": "Begleitschreiben laden (.docx)",
-        "success": "Dokumente erfolgreich erstellt!", "error": "Fehler", "warn_msg": "⚠️ Bitte CV und Stellenbeschrieb hochladen."
+        "language_label": "Sprache auswählen", "sidebar_title": "Profileinstellungen", "upload_photo": "Foto hochladen", 
+        "border_width": "Rahmenbreite (px)", "preview_photo": "Vorschau", "main_title": "Professioneller Lebenslauf-Generator",
+        "upload_cv": "1. Lebenslauf hochladen (PDF)", "job_desc": "2. Stellenbeschrieb einfügen", 
+        "generate_btn": "Dokumente erstellen", "spinner_msg": "Analyse läuft... bitte warten...", 
+        "tab_cv": "Lebenslauf", "tab_letter": "Begleitschreiben", "download_cv": "Lebenslauf laden (.docx)", 
+        "download_letter": "Begleitschreiben laden (.docx)", "success": "Dokumente erfolgreich erstellt!", "error": "Fehler"
     },
     "es": {
-        "language_label": "Seleccionar Idioma", "sidebar_title": "Ajustes de Perfil", "ph_lbl": "Foto de Perfil", 
-        "bord_lbl": "Grosor Borde (px)", "preview_photo": "Vista Previa", "main_title": "Generador de CV Profesional",
-        "upload_cv": "1. Subir CV (PDF)", "job_lbl": "2. Pegar Oferta de Trabajo", 
-        "btn": "✨ Generar Documentos", "spinner_msg": "Análisis en curso...", 
-        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Presentación", 
-        "download_cv": "Descargar CV (.docx)", "download_letter": "Descargar Carta (.docx)",
-        "success": "¡Documentos generados!", "error": "Error", "warn_msg": "⚠️ Sube CV y Oferta."
+        "language_label": "Seleccionar Idioma", "sidebar_title": "Ajustes de Perfil", "upload_photo": "Subir Foto", 
+        "border_width": "Grosor Borde (px)", "preview_photo": "Vista Previa", "main_title": "Generador de CV Profesional",
+        "upload_cv": "1. Subir CV (PDF)", "job_desc": "2. Pegar Oferta de Trabajo", 
+        "generate_btn": "Generar Documentos", "spinner_msg": "Análisis en curso...", 
+        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Presentación", "download_cv": "Descargar CV (.docx)", 
+        "download_letter": "Descargar Carta (.docx)", "success": "¡Documentos generados!", "error": "Error"
     },
     "pt": {
-        "language_label": "Selecionar Idioma", "sidebar_title": "Configurações de Perfil", "ph_lbl": "Foto de Perfil", 
-        "bord_lbl": "Borda da Foto (px)", "preview_photo": "Visualização", "main_title": "Gerador de Currículo Profissional",
-        "upload_cv": "1. Enviar CV (PDF)", "job_lbl": "2. Colar Anúncio de Emprego", 
-        "btn": "✨ Gerar Documentos", "spinner_msg": "Análise em andamento...", 
-        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Apresentação", 
-        "download_cv": "Baixar CV (.docx)", "download_letter": "Baixar Carta (.docx)",
-        "success": "Documentos gerados!", "error": "Erro", "warn_msg": "⚠️ Envie CV e Anúncio."
+        "language_label": "Selecionar Idioma", "sidebar_title": "Configurações de Perfil", "upload_photo": "Carregar Foto", 
+        "border_width": "Borda da Foto (px)", "preview_photo": "Visualização", "main_title": "Gerador de Currículo Profissional",
+        "upload_cv": "1. Enviar CV (PDF)", "job_desc": "2. Colar Anúncio de Emprego", 
+        "generate_btn": "Gerar Documentos", "spinner_msg": "Análise em andamento...", 
+        "tab_cv": "CV Gráfico", "tab_letter": "Carta de Apresentação", "download_cv": "Baixar CV (.docx)", 
+        "download_letter": "Baixar Carta (.docx)", "success": "Documentos gerados!", "error": "Erro"
     }
 }
 
@@ -129,54 +121,18 @@ SECTION_TITLES = {
     "pt": {"summary": "PERFIL", "exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skills": "COMPETÊNCIAS", "lang": "IDIOMAS"}
 }
 
-# --- 3. API CONFIG ---
+# --- 3. CONFIGURAZIONE API ---
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error("🚨 API KEY mancante.")
+    st.error("🚨 API KEY mancante nei Secrets.")
     st.stop()
 
-# --- 4. FUNZIONI HELPER ---
-
-def set_cell_bg(cell, color_hex):
-    """Sfondo colorato cella Word via XML"""
-    tcPr = cell._element.get_or_add_tcPr()
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:val'), 'clear')
-    shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), color_hex)
-    tcPr.append(shd)
-
-def add_section_header(doc, text):
-    """Titolo sezione blu con linea sotto"""
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(14)
-    p.paragraph_format.space_after = Pt(6)
-    
-    run = p.add_run(text)
-    run.bold = True
-    run.font.size = Pt(12)
-    run.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
-    
-    # Border Bottom (XML hack)
-    pPr = p._p.get_or_add_pPr()
-    pbdr = OxmlElement('w:pBdr')
-    bottom = OxmlElement('w:bottom')
-    bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')
-    bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), '20547d')
-    pbdr.append(bottom)
-    pPr.append(pbdr)
-
-def extract_pdf_text(file):
-    try:
-        reader = pypdf.PdfReader(file)
-        return "\n".join([p.extract_text() for p in reader.pages])
-    except: return ""
+# --- 4. FUNZIONI HELPER (IMMAGINI & PDF) ---
 
 def process_image(uploaded_file, border_width_px):
+    """Aggiunge bordo bianco e restituisce immagine PIL."""
     if not uploaded_file: return None
     try:
         uploaded_file.seek(0)
@@ -188,45 +144,34 @@ def process_image(uploaded_file, border_width_px):
         return img
     except: return None
 
-def get_image_base64(uploaded_file, border_width):
-    # Funzione per visualizzazione a schermo (se serve)
-    if not uploaded_file: return None
+def extract_pdf_text(file):
     try:
-        image = Image.open(uploaded_file)
-        if border_width > 0:
-            image = ImageOps.expand(image, border=border_width, fill='white')
-        buffered = io.BytesIO()
-        image.save(buffered, format="PNG")
-        return base64.b64encode(buffered.getvalue()).decode()
-    except: return None
+        reader = pypdf.PdfReader(file)
+        return "\n".join([p.extract_text() for p in reader.pages])
+    except: return ""
 
-# --- 5. LOGICA AI ---
+# --- 5. LOGICA AI (GEMINI 3 PRO) ---
 
 def get_gemini_response(cv_text, job_desc, lang_code):
     try:
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
-        lang_prompt = f"Target Language: {lang_code}."
+        lang_prompt = f"Target Language Code: {lang_code}."
         if lang_code == "de_ch":
-            lang_prompt += " IMPORTANT: Use Swiss Standard German spelling (use 'ss' instead of 'ß')."
+            lang_prompt += " IMPORTANT: Use Swiss Standard German spelling (NO 'ß', use 'ss')."
 
         prompt = f"""
         ROLE: You are an expert HR Translator and Resume Writer.
         {lang_prompt}
         
         MANDATORY: 
-        1. All content in the output JSON (descriptions, roles, skills, summary) MUST be translated into the selected language. 
-        Do not leave any sentence in the original language of the PDF.
+        1. All content in the output JSON MUST be translated into the target language.
+        2. Do NOT use markdown. Return raw JSON.
         
         INPUT CV: {cv_text[:25000]}
         JOB DESCRIPTION: {job_desc}
         
-        TASK:
-        1. Extract personal info accurately.
-        2. Rewrite CV content to match the job description, fully translated.
-        3. Write a Cover Letter in the selected language.
-        
-        OUTPUT JSON (Strictly this structure):
+        OUTPUT JSON STRUCTURE:
         {{
             "personal_info": {{ "name": "...", "contact_line": "City | Phone | Email" }},
             "summary_text": "...",
@@ -236,7 +181,7 @@ def get_gemini_response(cv_text, job_desc, lang_code):
             "education": [ 
                 {{ "degree": "...", "institution": "...", "dates": "..." }} 
             ],
-            "skills_list": ["Skill1", "Skill2", "Skill3"],
+            "skills_list": ["Skill1", "Skill2"],
             "cover_letter_text": "..."
         }}
         """
@@ -247,12 +192,42 @@ def get_gemini_response(cv_text, job_desc, lang_code):
         st.error(f"AI Error: {e}")
         return None
 
-# --- 6. WORD GENERATION (PIXEL PERFECT LAYOUT COMPACT) ---
+# --- 6. FUNZIONI WORD (LAYOUT PIXEL PERFECT) ---
+
+def set_cell_bg(cell, color_hex):
+    """Sfondo colorato cella."""
+    tcPr = cell._element.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), color_hex)
+    tcPr.append(shd)
+
+def add_section_header(doc, text):
+    """Titolo sezione blu con linea."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(14)
+    p.paragraph_format.space_after = Pt(6)
+    
+    run = p.add_run(text)
+    run.bold = True
+    run.font.size = Pt(12)
+    run.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
+    
+    pPr = p._p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '20547d')
+    pbdr.append(bottom)
+    pPr.append(pbdr)
 
 def create_cv_docx(data, pil_image, lang_code):
     doc = Document()
     
-    # Margini Pagina
+    # Margini stretti
     section = doc.sections[0]
     section.top_margin = Cm(1.27)
     section.left_margin = Cm(1.27)
@@ -262,12 +237,11 @@ def create_cv_docx(data, pil_image, lang_code):
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # === COLONNE OTTIMIZZATE (COMPATTE) ===
-    # Ridotto spazio foto (1.4) e allargato testo (5.8)
-    table.columns[0].width = Inches(1.4) 
-    table.columns[1].width = Inches(5.8)
+    # Larghezza Colonne (Foto Stretta, Testo Largo)
+    table.columns[0].width = Inches(1.3) 
+    table.columns[1].width = Inches(6.0)
     
-    # Altezza Riga Esatta
+    # Altezza Riga (2.0 Pollici precisi)
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
     row.height = Inches(2.0)
@@ -296,8 +270,7 @@ def create_cv_docx(data, pil_image, lang_code):
             img_byte = io.BytesIO()
             pil_image.save(img_byte, format="PNG")
             img_byte.seek(0)
-            
-            # Inserimento foto a 1.5 pollici
+            # Foto alta 1.5 pollici (dentro banner 2.0)
             run = p_img.add_run()
             run.add_picture(img_byte, height=Inches(1.5))
         except: pass
@@ -339,7 +312,6 @@ def create_cv_docx(data, pil_image, lang_code):
             p2 = doc.add_paragraph(exp['dates'])
             p2.runs[0].italic = True
             p2.paragraph_format.space_after = Pt(2)
-            
             doc.add_paragraph(exp['description']).paragraph_format.space_after = Pt(8)
             
     if data.get('education'):
@@ -367,39 +339,35 @@ def create_letter_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- 7. MAIN LOGIC (UI) ---
+# --- 7. MAIN LOOP (INTERFACCIA) ---
 
-# Sidebar: Lingua
 with st.sidebar:
     st.title("⚙️ Setup")
     
-    current_lang_code = st.session_state.lang_code
-    current_label = TRANSLATIONS[current_lang_code]['language_label']
+    # Logica Lingua
+    current_lang = st.session_state.lang_code
+    lang_label = TRANSLATIONS[current_lang]['language_label']
     
-    lang_keys = list(LANG_MAP.keys())
-    default_idx = 0
-    for i, key in enumerate(lang_keys):
-        if LANG_MAP[key] == current_lang_code:
-            default_idx = i
-            break
-            
-    selected_lang_name = st.selectbox(current_label, lang_keys, index=default_idx)
+    # Trova indice corrente
+    keys = list(LANG_MAP.keys())
+    vals = list(LANG_MAP.values())
+    curr_idx = vals.index(current_lang) if current_lang in vals else 0
     
-    new_lang_code = LANG_MAP[selected_lang_name]
-    if new_lang_code != st.session_state.lang_code:
-        st.session_state.lang_code = new_lang_code
+    sel_lang_name = st.selectbox("Language", keys, index=curr_idx, label_visibility="visible")
+    new_code = LANG_MAP[sel_lang_name]
+    
+    # Aggiorna stato se cambia
+    if new_code != current_lang:
+        st.session_state.lang_code = new_code
         st.rerun()
-    
+        
     t = TRANSLATIONS[st.session_state.lang_code]
     
     st.markdown("---")
     st.subheader(t['sidebar_title'])
-    
-    u_photo = st.file_uploader(t['upload_photo'], type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
-    
+    u_photo = st.file_uploader(t['upload_photo'], type=['jpg', 'png', 'jpeg'])
     st.write(t['border_width'])
-    # Slider max 50px
-    b_width = st.slider("Slider_Border", 0, 50, 10, label_visibility="collapsed")
+    b_width = st.slider("B_Width", 0, 50, 10, label_visibility="collapsed")
     
     processed_img = None
     if u_photo:
@@ -409,30 +377,27 @@ with st.sidebar:
             processed_img.save(buf, format="PNG")
             st.image(buf, width=150, caption=t['preview_photo'])
 
-# Main Page
 st.title(f"🚀 {t['main_title']}")
 
 c1, c2 = st.columns(2)
 with c1:
     st.subheader(t['upload_cv'])
-    u_cv = st.file_uploader("Upload_CV", type="pdf", label_visibility="collapsed")
+    u_cv = st.file_uploader("CV_Upl", type="pdf", label_visibility="collapsed")
 with c2:
     st.subheader(t['job_lbl'])
     job_desc = st.text_area("Job_Desc", height=150, label_visibility="collapsed")
 
-if st.button(t['generate_btn'], type="primary", use_container_width=True):
+if st.button(t['btn'], type="primary", use_container_width=True):
     if not u_cv or not job_desc:
-        st.warning(t['warn_msg'])
+        st.warning("Input Missing.")
     else:
         with st.spinner(t['spinner_msg']):
             cv_text = extract_pdf_text(u_cv)
             data = get_gemini_response(cv_text, job_desc, st.session_state.lang_code)
-            
             if data:
                 st.session_state.generated_data = data
-                st.success(t['success_msg'])
+                st.success(t['success'])
 
-# Output Tabs
 if st.session_state.generated_data:
     d = st.session_state.generated_data
     t1, t2 = st.tabs([t['tab_cv'], t['tab_letter']])
