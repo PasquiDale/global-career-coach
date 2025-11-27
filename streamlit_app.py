@@ -31,7 +31,7 @@ st.markdown("""
 if "generated_data" not in st.session_state:
     st.session_state.generated_data = None
 
-# --- 2. DIZIONARI LINGUA & TITOLI ---
+# --- 2. DIZIONARI LINGUA & TITOLI (HARDCODED) ---
 
 LANG_CODES = {
     "Italiano": "it",
@@ -93,6 +93,7 @@ def add_section_header(doc, text):
     run.font.size = Pt(12)
     run.font.color.rgb = RGBColor(32, 84, 125) # Blu #20547d
     
+    # Border Bottom (XML)
     pPr = p._p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
@@ -126,20 +127,25 @@ def get_ai_data(cv_text, job_desc, lang_code):
     try:
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
-        lang_prompt = f"Target Language: {lang_code}."
+        # Istruzioni lingua specifiche
+        lang_instruction = f"The selected language is: {lang_code}."
         if lang_code == "de_ch":
-            lang_prompt += " IMPORTANT: Use Swiss German spelling (use 'ss' instead of 'ß')."
+            lang_instruction += " IMPORTANT: Use Swiss Standard German spelling (use 'ss' instead of 'ß')."
 
         prompt = f"""
-        You are an Expert Resume Writer. {lang_prompt}
+        ROLE: You are an expert HR Translator and Resume Writer.
+        {lang_instruction}
+        
+        MANDATORY: All content in the output JSON (descriptions, roles, skills, summary) MUST be translated into the selected language. 
+        Do not leave any sentence in the original language of the PDF.
         
         INPUT CV: {cv_text[:25000]}
         JOB DESCRIPTION: {job_desc}
         
         TASK:
         1. Extract personal info accurately.
-        2. Rewrite CV content to match the job description.
-        3. Write a Cover Letter.
+        2. Rewrite CV content to match the job description, fully translated.
+        3. Write a Cover Letter in the selected language.
         
         OUTPUT JSON (Strictly this structure):
         {{
@@ -162,7 +168,7 @@ def get_ai_data(cv_text, job_desc, lang_code):
         st.error(f"AI Error: {e}")
         return None
 
-# --- 6. WORD GENERATION (PIXEL PERFECT) ---
+# --- 6. WORD GENERATION (PIXEL PERFECT LAYOUT) ---
 
 def create_cv_docx(data, photo_file, border_width, lang_code):
     doc = Document()
@@ -182,32 +188,27 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     table.columns[0].width = Cm(4.5)  # Colonna Foto
     table.columns[1].width = Cm(13.0) # Colonna Testo
     
-    # IMPOSTIAMO UN'ALTEZZA MINIMA PER IL BANNER
-    # Questo è il trucco per l'avvolgimento: la riga sarà alta almeno 4cm
-    table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
-    table.rows[0].height = Cm(4.5)
+    # === HEADER AVVOLGENTE (FIX) ===
+    # Impostiamo l'altezza della riga a 1.8 Pollici (circa 4.5 cm)
+    # L'immagine sarà alta 1.3 Pollici (circa 3.3 cm)
+    # Questo garantisce 0.25 pollici di margine blu sopra e sotto.
+    row = table.rows[0]
+    row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    row.height = Inches(1.8)
     
     cell_img = table.cell(0, 0)
     cell_txt = table.cell(0, 1)
     
-    # Sfondo Blu
+    # Sfondo Blu (#20547d)
     blue_color = "20547d"
     set_cell_bg(cell_img, blue_color)
     set_cell_bg(cell_txt, blue_color)
     
-    # === ALLINEAMENTO VERTICALE (CENTRATO) ===
-    # Fondamentale per avere spazio sopra e sotto la foto
+    # === ALLINEAMENTO VERTICALE ===
     cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
     # --- FOTO ---
-    # Puliamo il paragrafo della foto per evitare margini fantasma
-    p_img = cell_img.paragraphs[0]
-    p_img.paragraph_format.space_before = Pt(0)
-    p_img.paragraph_format.space_after = Pt(0)
-    p_img.paragraph_format.line_spacing = 1.0
-    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
     if photo_file:
         try:
             photo_file.seek(0)
@@ -222,14 +223,20 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             img.save(img_byte, format="PNG")
             img_byte.seek(0)
             
-            # Inserimento foto (La cella è alta 4.5cm, foto larga 3.5cm -> rimane margine)
+            # Puliamo il paragrafo per centratura assoluta
+            p_img = cell_img.paragraphs[0]
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(0)
+            p_img.paragraph_format.space_after = Pt(0)
+            p_img.paragraph_format.line_spacing = 1.0
+            
+            # Inseriamo la foto a 1.3 pollici (più piccola del banner di 1.8)
             run = p_img.add_run()
-            run.add_picture(img_byte, width=Cm(3.5))
+            run.add_picture(img_byte, width=Inches(1.3))
         except: pass
         
     # --- TESTO HEADER ---
     p_name = cell_txt.paragraphs[0]
-    # Rimuoviamo spaziatura anche qui per centrare rispetto alla cella
     p_name.paragraph_format.space_before = Pt(0)
     p_name.paragraph_format.space_after = Pt(0)
     
@@ -240,14 +247,13 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
     
     p_cont = cell_txt.add_paragraph(data['personal_info']['contact_line'])
     p_cont.paragraph_format.space_before = Pt(4)
-    p_cont.paragraph_format.space_after = Pt(0)
     run_cont = p_cont.runs[0]
     run_cont.font.size = Pt(10)
     run_cont.font.color.rgb = RGBColor(230, 230, 230)
     
     doc.add_paragraph().space_after = Pt(12)
     
-    # --- BODY ---
+    # --- BODY (Con Titoli Hardcoded) ---
     titles = SECTION_TITLES[lang_code]
     
     # Profilo
@@ -263,7 +269,7 @@ def create_cv_docx(data, photo_file, border_width, lang_code):
             p.paragraph_format.space_after = Pt(2)
             runner = p.add_run(f"{exp['role']} | {exp['company']}")
             runner.bold = True
-            runner.font.color.rgb = RGBColor(32, 84, 125) # Blu scuro
+            runner.font.color.rgb = RGBColor(32, 84, 125) # Blu
             
             p2 = doc.add_paragraph(exp['dates'])
             p2.runs[0].italic = True
