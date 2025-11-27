@@ -14,14 +14,12 @@ import pypdf
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Career Coach Pro", page_icon="🚀", layout="wide")
 
-# --- CSS (Stile pagina + Preview Scuro) ---
+# --- CSS ---
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden;} 
     header {visibility: hidden;}
-    
-    /* Box per l'anteprima foto con sfondo scuro */
     .photo-preview {
         background-color: #2b2b2b;
         padding: 20px;
@@ -32,25 +30,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- LOGIN ---
+# --- LOGICA CHIAVE AUTOMATICA ---
+# 1. Cerca nei Secrets
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+
+# --- SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
     st.title("Career Coach")
     lang = st.selectbox("Lingua / Language", ["Italiano", "Deutsch", "English", "Español", "Português"])
     st.divider()
     
-    # Auto-Login da Secrets o Manuale
-    api_key = st.secrets.get("GEMINI_API_KEY", "")
+    # 2. Se NON c'è nei Secrets, chiedila a mano
     if not api_key:
         api_key = st.text_input("Inserisci API Key", type="password")
-    
+
+    # Configura subito se la chiave esiste
     if api_key:
         try:
             genai.configure(api_key=api_key)
         except: pass
 
+# Blocco se manca la chiave
 if not api_key:
-    st.warning("⬅️ Inserisci la chiave API nel menu a sinistra.")
+    st.warning("⬅️ Chiave API non trovata. Inseriscila nel menu a sinistra.")
     st.stop()
 
 # --- FUNZIONI WORD ---
@@ -106,29 +109,24 @@ with col_img_in:
     f_img = st.file_uploader("Foto (JPG/PNG)", type=["jpg", "png", "jpeg"])
     border_val = st.slider(t["bord"], 0, 50, 15)
 
-processed_image = None # Variabile per salvare la foto modificata
+processed_image = None 
 
 with col_img_prev:
     if f_img:
-        # Elaborazione immediata per l'anteprima
         image_pil = Image.open(f_img)
-        # Applico bordo
         processed_image = ImageOps.expand(image_pil, border=border_val, fill='white')
         
-        # Converto in base64 per mostrarla nell'HTML custom
         buffered = io.BytesIO()
         processed_image.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
         
-        # Visualizzazione con sfondo scuro per vedere il bordo
         st.markdown(f"""
         <div class="photo-preview">
-            <p style="color:white; margin-bottom:10px;">Anteprima (Sfondo scuro per contrasto)</p>
             <img src="data:image/jpeg;base64,{img_str}" width="200" style="border-radius:5px;">
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("Carica una foto per vedere l'anteprima del bordo.")
+        st.info("Carica foto per anteprima.")
 
 st.divider()
 
@@ -138,28 +136,26 @@ f_pdf = st.file_uploader("CV (PDF)", type=["pdf"])
 
 if st.button(t["gen"], type="primary"):
     if not f_pdf:
-        st.error("Per favore carica almeno il PDF del CV.")
+        st.error("Carica il PDF del CV.")
     else:
         try:
-            # 1. LETTURA PDF
             reader = pypdf.PdfReader(f_pdf)
             txt_pdf = ""
             for p in reader.pages: txt_pdf += p.extract_text()
             
             with st.spinner(t["load"]):
-                # 2. AI: ESTRAZIONE DATI
+                # 2. ESTRAZIONE DATI
                 prompt_header = f"""
                 Estrai i dati di contatto. Formato ESATTO:
                 Nome Cognome | Indirizzo | Telefono | Email
-                
-                TESTO: {txt_pdf[:1000]}
+                TESTO: {txt_pdf[:1500]}
                 """
                 header_data = get_ai(prompt_header).strip()
                 
-                # 3. AI: RISCRITTURA
+                # 3. RISCRITTURA CORPO
                 prompt_body = f"""
                 Sei un esperto HR. Riscrivi il CV in {lang}.
-                NON rimettere i dati di contatto (li ho già).
+                NON includere intestazione (Nome, Contatti).
                 Usa titoli MAIUSCOLI per le sezioni.
                 Sii professionale. Niente markdown.
                 TESTO: {txt_pdf}
@@ -173,7 +169,7 @@ if st.button(t["gen"], type="primary"):
                 section.left_margin = Cm(1.5)
                 section.right_margin = Cm(1.5)
 
-                # --- BANNER BLU ---
+                # BANNER
                 if processed_image:
                     table = doc.add_table(rows=1, cols=2)
                     table.columns[0].width = Cm(4.5) 
@@ -183,7 +179,6 @@ if st.button(t["gen"], type="primary"):
                     set_cell_bg(c_img, "0E2F44")
                     set_cell_bg(c_txt, "0E2F44")
                     
-                    # Inserimento Foto Modificata
                     p = c_img.paragraphs[0]
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     run = p.add_run()
@@ -195,7 +190,7 @@ if st.button(t["gen"], type="primary"):
                     c_txt = table.cell(0, 0)
                     set_cell_bg(c_txt, "0E2F44")
 
-                # Testo Banner
+                # TESTO BANNER
                 c_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
                 parts = header_data.split('|')
                 name = parts[0].strip() if len(parts)>0 else "Nome Cognome"
@@ -217,12 +212,12 @@ if st.button(t["gen"], type="primary"):
 
                 doc.add_paragraph().space_after = Pt(12)
 
-                # Corpo CV
+                # CORPO
                 for line in body_content.split('\n'):
                     line = line.strip()
                     if not line: continue
                     
-                    if len(line)<50 and line.isupper() and any(c.isalpha() for c in line):
+                    if len(line)<60 and line.isupper() and any(c.isalpha() for c in line):
                         p = doc.add_paragraph()
                         p.space_before = Pt(12)
                         add_bottom_border(p)
@@ -234,7 +229,6 @@ if st.button(t["gen"], type="primary"):
                         p = doc.add_paragraph(line)
                         p.runs[0].font.size = Pt(11)
 
-                # Download
                 bio = io.BytesIO()
                 doc.save(bio)
                 st.success("✅ Documento Pronto!")
