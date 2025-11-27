@@ -6,37 +6,38 @@ import io
 import json
 import pypdf
 import re
-from PIL import Image
+from PIL import Image, ImageOps
 
 # --- 1. CONFIGURAZIONE PAGINA E STATO ---
 st.set_page_config(
-    page_title="AI Career Assistant",
+    page_title="AI Career Assistant Pro",
     page_icon="🚀",
     layout="wide"
 )
 
-# Inizializzazione Session State (Fondamentale per la persistenza dei dati)
+# Inizializzazione Session State per persistenza dati
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
 if "cv_text_extracted" not in st.session_state:
     st.session_state.cv_text_extracted = ""
 if "generated_content" not in st.session_state:
     st.session_state.generated_content = None
+if "current_model_used" not in st.session_state:
+    st.session_state.current_model_used = ""
 
-# --- 2. CONFIGURAZIONE API GOOGLE (GEMINI) ---
+# --- 2. CONFIGURAZIONE API KEY ---
 try:
-    # Recupero chiave dai Secrets di Streamlit
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error("🚨 Errore Critico: La chiave 'GEMINI_API_KEY' non è stata trovata nei Secrets di Streamlit.")
-    st.info("Configura la chiave nelle impostazioni avanzate della tua app su Streamlit Cloud.")
-    st.stop() # Blocca l'esecuzione se manca la chiave
+    st.error("🚨 ERRORE CRITICO: Chiave API mancante.")
+    st.warning("Assicurati di aver impostato `GEMINI_API_KEY` nei Secrets di Streamlit Cloud.")
+    st.stop()
 
-# --- 3. FUNZIONI DI UTILITÀ ---
+# --- 3. FUNZIONI UTILITY (Backend) ---
 
 def extract_text_from_pdf(uploaded_file):
-    """Estrae il testo grezzo dal PDF caricato."""
+    """Estrae testo grezzo dal PDF."""
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
@@ -47,210 +48,195 @@ def extract_text_from_pdf(uploaded_file):
         st.error(f"Errore lettura PDF: {e}")
         return None
 
-def clean_markdown_for_word(text):
-    """
-    Pulisce il testo dai marcatori Markdown per un documento Word professionale.
-    """
+def clean_markdown(text):
+    """Pulisce il testo da formattazione Markdown per Word."""
     if not text: return ""
-    # Rimuove il grassetto (**testo**) lasciando il testo
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-    # Rimuove il corsivo (*testo*)
-    text = re.sub(r'\*(.*?)\*', r'\1', text)
-    # Rimuove i titoli Markdown (## Titolo)
-    text = re.sub(r'#+\s', '', text)
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text) # Via grassetto
+    text = re.sub(r'\*(.*?)\*', r'\1', text)     # Via corsivo
+    text = re.sub(r'#+\s', '', text)             # Via titoli
     return text.strip()
 
 def create_docx(text_content):
-    """Genera un file .docx in memoria partendo dal testo pulito."""
+    """Crea un file .docx in memoria."""
     doc = Document()
-    
-    # Impostazioni stile base
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Calibri'
     font.size = Pt(11)
     
-    # Pulizia e inserimento
-    clean_text = clean_markdown_for_word(text_content)
+    cleaned = clean_markdown(text_content)
     
-    for line in clean_text.split('\n'):
+    for line in cleaned.split('\n'):
         line = line.strip()
         if line:
             doc.add_paragraph(line)
             
-    # Salvataggio nel buffer di memoria
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-def generate_with_gemini_3(cv_text, job_desc):
+def generate_with_fallback(cv_text, job_desc):
     """
-    Chiama Gemini 3.0 Pro per elaborare i contenuti in JSON.
+    Logica CORE: Tenta Gemini 3.0 Pro, se fallisce passa a 1.5 Pro.
+    Restituisce il JSON generato e il nome del modello usato.
     """
-    # CONFIGURAZIONE MODELLO RICHIESTA (Versione 3.0 Pro)
+    
+    prompt = f"""
+    Sei un Senior HR Specialist.
+    
+    [CV CANDIDATO]:
+    {cv_text[:30000]} 
+    
+    [ANNUNCIO DI LAVORO]:
+    {job_desc}
+    
+    [COMPITO]:
+    1. Riscrivi il CV ottimizzandolo per l'annuncio.
+    2. Scrivi una Lettera di Presentazione persuasiva.
+    
+    [OUTPUT OBBLIGATORIO]:
+    Rispondi SOLO con un JSON valido con queste chiavi:
+    {{
+        "cv_text": "...testo del cv...",
+        "cover_letter_text": "...testo della lettera..."
+    }}
+    Non aggiungere markdown (```json).
+    """
+
+    # --- TENTATIVO 1: GEMINI 3.0 PRO ---
     try:
         model = genai.GenerativeModel("gemini-3.0-pro")
-        
-        prompt = f"""
-        Sei un Career Coach esperto. Analizza il seguente CV e l'Annuncio di lavoro.
-        
-        [CV DEL CANDIDATO]:
-        {cv_text}
-        
-        [ANNUNCIO DI LAVORO]:
-        {job_desc}
-        
-        [COMPITO]:
-        1. Riscrivi il CV migliorandolo, rendendolo professionale e mirato per l'annuncio.
-        2. Scrivi una Lettera di Presentazione persuasiva che colleghi le esperienze del candidato ai requisiti.
-        
-        [FORMATO OUTPUT RICHIESTO]:
-        Devi restituire SOLO un JSON valido (senza markdown ```json) con questa struttura esatta:
-        {{
-            "cv_text": "...testo completo del cv...",
-            "cover_letter_text": "...testo completo della lettera..."
-        }}
-        """
-        
         response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        st.error(f"Errore durante la chiamata a Gemini 3.0 Pro: {e}")
-        return None
+        return response.text, "Gemini 3.0 Pro"
+    except Exception as e_30:
+        # --- TENTATIVO 2 (FALLBACK): GEMINI 1.5 PRO ---
+        # Se siamo qui, il 3.0 ha fallito (404 o altro). Non fermiamo l'app.
+        print(f"Fallback triggered: {e_30}") # Log interno
+        try:
+            model_fallback = genai.GenerativeModel("gemini-1.5-pro")
+            response = model_fallback.generate_content(prompt)
+            return response.text, "Gemini 1.5 Pro (Fallback)"
+        except Exception as e_15:
+            st.error(f"Errore fatale su entrambi i modelli: {e_15}")
+            return None, None
 
-# --- 4. INTERFACCIA UTENTE (SIDEBAR) ---
-
+# --- 4. INTERFACCIA: SIDEBAR (FOTO) ---
 with st.sidebar:
-    st.title("Impostazioni Profilo")
+    st.title("📸 Impostazioni Profilo")
+    st.info("Carica la tua foto per visualizzare l'anteprima con bordo.")
     
-    st.subheader("La tua Foto")
-    uploaded_photo = st.file_uploader("Carica foto profilo", type=['jpg', 'png', 'jpeg'])
+    uploaded_photo = st.file_uploader("Carica Foto (JPG/PNG)", type=['jpg', 'png', 'jpeg'])
+    border_width = st.slider("Spessore bordo (px)", 0, 20, 5)
     
-    border_width = st.slider("Spessore bordo foto (px)", 0, 20, 5)
-    
-    # Visualizzazione foto con bordo CSS dinamico
     if uploaded_photo:
-        image = Image.open(uploaded_photo)
-        st.markdown(
-            f"""
-            <style>
-            .profile-pic {{
-                border: {border_width}px solid #4CAF50; /* Colore verde esempio */
-                border-radius: 50%;
-                display: block;
-                margin-left: auto;
-                margin-right: auto;
-                width: 150px;
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        st.image(image, caption="Anteprima Foto", width=150)
-        st.info(f"Bordo applicato: {border_width}px")
-    else:
-        st.markdown("Nessuna foto caricata.")
+        try:
+            image = Image.open(uploaded_photo)
+            # Aggiungiamo bordo usando PIL per un'anteprima reale
+            # Convertiamo in RGB se necessario
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+                
+            img_with_border = ImageOps.expand(image, border=border_width, fill='white') # Bordo bianco o colorato
+            
+            st.image(img_with_border, caption="Anteprima Foto", use_column_width=True)
+            
+            # CSS Hack per mostrare visivamente il bordo colorato nell'app se lo sfondo è bianco
+            st.markdown(
+                f"""
+                <div style="display: flex; justify-content: center;">
+                    <div style="border: {border_width}px solid #4F8BF9; border-radius: 8px; padding: 5px; display: inline-block;">
+                        <span style="font-size: 12px; color: gray;">Simulazione Bordo Blu</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+        except Exception as e:
+            st.error("Errore caricamento immagine")
 
-# --- 5. INTERFACCIA UTENTE (MAIN PAGE) ---
-
+# --- 5. INTERFACCIA: MAIN PAGE ---
 st.title("🤖 AI Career Assistant")
-st.markdown("Genera documenti professionali ottimizzati con **Gemini 3.0 Pro**.")
+st.markdown("Genera CV e Lettera ottimizzati. Il sistema usa **Gemini 3.0** (con fallback automatico).")
 
-col_input1, col_input2 = st.columns(2)
+col1, col2 = st.columns(2)
 
-with col_input1:
-    st.subheader("1. Carica il CV")
-    uploaded_cv = st.file_uploader("Seleziona il tuo CV (PDF)", type="pdf")
-    
+with col1:
+    st.subheader("1. Carica CV")
+    uploaded_cv = st.file_uploader("Upload PDF", type="pdf")
     if uploaded_cv:
         extracted = extract_text_from_pdf(uploaded_cv)
         if extracted:
             st.session_state.cv_text_extracted = extracted
-            st.success("✅ CV letto con successo")
+            st.success("✅ CV Letto")
 
-with col_input2:
+with col2:
     st.subheader("2. Annuncio di Lavoro")
-    # Text area collegata a session_state per non perdere il testo al reload
+    # Colleghiamo direttamente al session_state tramite key
     st.text_area(
-        "Inserisci qui il testo dell'offerta",
+        "Incolla qui la Job Description",
         height=200,
-        key="job_description", 
-        placeholder="Incolla qui la Job Description..."
+        key="job_description",
+        placeholder="Incolla qui il testo dell'offerta..."
     )
 
 st.markdown("---")
 
-# --- 6. LOGICA DI GENERAZIONE ---
-
+# --- 6. LOGICA DI ESECUZIONE ---
 if st.button("✨ Genera Documenti", type="primary", use_container_width=True):
-    # Controlli preliminari
     if not st.session_state.cv_text_extracted:
-        st.warning("⚠️ Manca il CV. Carica un file PDF nella colonna sinistra.")
+        st.warning("⚠️ Manca il CV.")
     elif not st.session_state.job_description:
-        st.warning("⚠️ Manca l'Annuncio di Lavoro. Inseriscilo nella colonna destra.")
+        st.warning("⚠️ Manca l'Annuncio di Lavoro.")
     else:
-        with st.spinner("Gemini 3.0 Pro sta elaborando i tuoi documenti..."):
+        with st.spinner("Analisi in corso... (Tentativo con Gemini 3.0 Pro)"):
             
-            raw_response = generate_with_gemini_3(
+            raw_text, model_name = generate_with_fallback(
                 st.session_state.cv_text_extracted,
                 st.session_state.job_description
             )
             
-            if raw_response:
+            if raw_text:
                 try:
-                    # Pulizia stringa JSON (rimozione eventuali backticks del markdown)
-                    clean_json = raw_response.replace("```json", "").replace("```", "").strip()
+                    # Pulizia JSON
+                    clean_json = raw_text.replace("```json", "").replace("```", "").strip()
                     data = json.loads(clean_json)
                     
-                    # Salvataggio nel Session State
                     st.session_state.generated_content = data
-                    st.success("Elaborazione completata con successo!")
+                    st.session_state.current_model_used = model_name
+                    st.success(f"Fatto! Generato usando: **{model_name}**")
                     
                 except json.JSONDecodeError:
-                    st.error("Errore nella lettura della risposta AI. Il modello non ha restituito un JSON valido. Riprova.")
+                    st.error("Errore nel formato della risposta AI. Riprova.")
 
-# --- 7. VISUALIZZAZIONE RISULTATI E DOWNLOAD ---
-
+# --- 7. OUTPUT E DOWNLOAD ---
 if st.session_state.generated_content:
     st.divider()
-    st.subheader("📄 I tuoi Documenti Generati")
     
-    # Recupero dati dal JSON
-    cv_content = st.session_state.generated_content.get("cv_text", "")
-    cl_content = st.session_state.generated_content.get("cover_letter_text", "")
+    cv_out = st.session_state.generated_content.get("cv_text", "")
+    cl_out = st.session_state.generated_content.get("cover_letter_text", "")
     
-    # Tabs per organizzare l'output
-    tab1, tab2 = st.tabs(["CV Generato", "Lettera di Presentazione"])
+    tab1, tab2 = st.tabs(["📄 CV Generato", "✉️ Lettera di Presentazione"])
     
-    # TAB 1: CV
     with tab1:
-        st.markdown("### Anteprima CV Riscritto")
-        st.text_area("Contenuto CV", value=cv_content, height=400)
+        st.subheader("Anteprima CV")
+        st.text_area("Testo CV", value=cv_out, height=400)
         
-        # Generazione file Word in memoria
-        docx_cv = create_docx(cv_content)
-        
+        docx_cv = create_docx(cv_out)
         st.download_button(
-            label="⬇️ Scarica CV in Word (.docx)",
+            label="⬇️ Scarica CV (.docx)",
             data=docx_cv,
-            file_name="CV_Revisionato.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_cv_btn"
+            file_name="CV_Ottimizzato.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         
-    # TAB 2: LETTERA
     with tab2:
-        st.markdown("### Anteprima Lettera")
-        st.text_area("Contenuto Lettera", value=cl_content, height=400)
+        st.subheader("Anteprima Lettera")
+        st.text_area("Testo Lettera", value=cl_out, height=400)
         
-        # Generazione file Word in memoria
-        docx_cl = create_docx(cl_content)
-        
+        docx_cl = create_docx(cl_out)
         st.download_button(
-            label="⬇️ Scarica Lettera in Word (.docx)",
+            label="⬇️ Scarica Lettera (.docx)",
             data=docx_cl,
             file_name="Lettera_Presentazione.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_cl_btn"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
