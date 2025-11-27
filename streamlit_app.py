@@ -15,19 +15,30 @@ st.set_page_config(page_title="Career Coach", page_icon="🚀", layout="wide")
 # --- CSS ---
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# --- LOGIN ---
+# --- AUTO-LOGIN (SECRETS) ---
+# Prova a prendere la chiave dai segreti di Streamlit
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+
+# --- SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
     st.title("Career Coach")
     lang = st.selectbox("Lingua / Language", ["Deutsch", "Italiano", "English", "Español", "Português"])
     st.divider()
-    api_key = st.text_input("API Key (AI Studio)", type="password")
 
-    if api_key:
-        try:
-            genai.configure(api_key=api_key)
-        except:
-            pass
+    # Se la chiave NON è nei secrets, mostriamo il campo manuale
+    if not api_key:
+        st.markdown("### 🔐 Login")
+        api_key = st.text_input("API Key", type="password")
+        if not api_key:
+            st.warning("⬅️ Chiave mancante.")
+            st.stop() # Blocca l'app finché non c'è la chiave
+
+    # Configurazione Silenziosa
+    try:
+        genai.configure(api_key=api_key)
+    except Exception as e:
+        st.error(f"Errore Chiave: {e}")
 
 # --- FUNZIONE AI (GEMINI 3 PRO) ---
 def get_ai(prompt):
@@ -41,16 +52,16 @@ def get_ai(prompt):
 def clean_text(text):
     return text.replace("**", "").replace("###", "").replace("---", "").replace("##", "")
 
-# --- FUNZIONE BORDO SOTTO I TITOLI (Magia XML) ---
+# --- FUNZIONE BORDO SOTTO I TITOLI (WORD) ---
 def add_bottom_border(paragraph):
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
-    bottom.set(qn('w:val'), 'single') # Tipo di linea
-    bottom.set(qn('w:sz'), '6')       # Spessore (1/8 pt)
-    bottom.set(qn('w:space'), '1')    # Spazio
-    bottom.set(qn('w:color'), 'auto') # Colore (Nero/Automatico)
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), 'auto')
     pbdr.append(bottom)
     pPr.append(pbdr)
 
@@ -70,12 +81,11 @@ page = st.sidebar.radio("Menu", ["🏠 Home", t["cv"], t["foto"]])
 # --- HOME ---
 if page == "🏠 Home":
     st.title("Global Career Coach 🚀")
-    st.info("Professional AI System Ready.")
+    st.info("Sistema connesso e pronto all'uso.")
 
 # --- CV ---
 elif page == t["cv"]:
     st.header(t["cv"])
-    if not api_key: st.warning("API Key?"); st.stop()
     
     f = st.file_uploader(t["up"], type=["pdf"])
     
@@ -86,17 +96,15 @@ elif page == t["cv"]:
             for p in reader.pages: txt += p.extract_text()
             
             with st.spinner(t["load"]):
-                # Prompt ottimizzato per struttura chiara
                 prompt = f"""
                 Sei un esperto HR. Riscrivi questo CV in {lang}.
                 
                 REGOLE DI FORMATTAZIONE RIGIDE:
                 1. Prima riga: SOLO Nome e Cognome (nient'altro).
                 2. Seconda riga: Dati di contatto su una riga.
-                3. Per ogni sezione (es. PROFILO, ESPERIENZA, FORMAZIONE), scrivi il TITOLO tutto in MAIUSCOLO su una riga da solo.
+                3. Per ogni sezione (es. PROFILO, ESPERIENZA), scrivi il TITOLO tutto in MAIUSCOLO su una riga da solo.
                 4. Sotto il titolo scrivi il contenuto.
                 5. NON usare markdown (** o ##).
-                6. Sii professionale e sintetico.
                 
                 TESTO ORIGINALE:
                 {txt}
@@ -108,35 +116,31 @@ elif page == t["cv"]:
                 if "ERRORE" in res:
                     st.error(res)
                 else:
-                    # --- COSTRUZIONE WORD ---
                     doc = Document()
-                    
                     lines = res_clean.split('\n')
                     
-                    # 1. Nome (Gigante)
+                    # 1. Nome
                     if lines:
                         head = doc.add_heading(lines[0].strip(), 0)
                         head.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        head.runs[0].font.color.rgb = RGBColor(0, 51, 102) # Blu scuro
+                        head.runs[0].font.color.rgb = RGBColor(0, 51, 102)
                     
                     # 2. Resto del documento
                     for line in lines[1:]:
                         line = line.strip()
                         if not line: continue
                         
-                        # Riconoscimento Titoli di Sezione (Corti e MAIUSCOLI)
-                        # Es: "ESPERIENZA PROFESSIONALE"
+                        # Riconoscimento Titoli (MAIUSCOLO e CORTO)
                         if len(line) < 50 and line.isupper() and any(c.isalpha() for c in line):
                             p = doc.add_paragraph()
-                            add_bottom_border(p) # AGGIUNGE LA RIGA SOTTO!
+                            add_bottom_border(p)
                             runner = p.add_run(line)
                             runner.bold = True
                             runner.font.size = Pt(14)
-                            runner.font.color.rgb = RGBColor(0, 51, 102) # Blu scuro
+                            runner.font.color.rgb = RGBColor(0, 51, 102)
                             p.space_before = Pt(12)
                             p.space_after = Pt(6)
                         else:
-                            # Testo normale
                             p = doc.add_paragraph(line)
                             p.paragraph_format.space_after = Pt(4)
                             runner = p.runs[0]
