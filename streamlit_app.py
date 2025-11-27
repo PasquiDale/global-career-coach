@@ -1,8 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
-from docx.shared import Pt, RGBColor
+from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 import io
 from PIL import Image, ImageOps
 import pypdf
@@ -10,23 +12,16 @@ import pypdf
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Career Coach", page_icon="🚀", layout="wide")
 
-# --- CSS (Nasconde menu e footer) ---
-st.markdown("""
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
+# --- CSS ---
+st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
 # --- LOGIN ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
     st.title("Career Coach")
-    lang = st.selectbox("Lingua", ["Italiano", "English", "Deutsch", "Español", "Português"])
+    lang = st.selectbox("Lingua / Language", ["Deutsch", "Italiano", "English", "Español", "Português"])
     st.divider()
-    st.markdown("### 🔐 Accesso")
-    api_key = st.text_input("Inserisci API Key", type="password")
+    api_key = st.text_input("API Key (AI Studio)", type="password")
 
     if api_key:
         try:
@@ -34,70 +29,54 @@ with st.sidebar:
         except:
             pass
 
-# --- FUNZIONE AI (GEMINI 3 PRO - POWER) ---
+# --- FUNZIONE AI (GEMINI 3 PRO) ---
 def get_ai(prompt):
     try:
-        # Usiamo il modello 3 PRO
         model = genai.GenerativeModel('gemini-3-pro-preview')
         return model.generate_content(prompt).text
     except Exception as e:
         return f"ERRORE: {str(e)}"
 
-# --- FUNZIONE PULIZIA TESTO ---
+# --- FUNZIONE PULIZIA ---
 def clean_text(text):
-    return text.replace("**", "").replace("###", "").replace("---", "")
+    return text.replace("**", "").replace("###", "").replace("---", "").replace("##", "")
+
+# --- FUNZIONE BORDO SOTTO I TITOLI (Magia XML) ---
+def add_bottom_border(paragraph):
+    p = paragraph._p
+    pPr = p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single') # Tipo di linea
+    bottom.set(qn('w:sz'), '6')       # Spessore (1/8 pt)
+    bottom.set(qn('w:space'), '1')    # Spazio
+    bottom.set(qn('w:color'), 'auto') # Colore (Nero/Automatico)
+    pbdr.append(bottom)
+    pPr.append(pbdr)
 
 # --- TRADUZIONI ---
 trans = {
-    "Italiano": {
-        "home":"🏠 Home", "cv":"📄 CV & Foto", "up":"Carica il tuo CV (PDF)", 
-        "gen":"Riformatta CV", "dl":"Scarica CV Word", 
-        "foto_tit":"Studio Foto", "up_f":"Carica Foto", "dl_f":"Scarica Foto",
-        "load": "Stiamo elaborando il tuo documento...", "done": "Analisi completata!"
-    },
-    "English": {
-        "home":"🏠 Home", "cv":"📄 CV & Photo", "up":"Upload CV (PDF)", 
-        "gen":"Reformat CV", "dl":"Download Word CV", 
-        "foto_tit":"Photo Studio", "up_f":"Upload Photo", "dl_f":"Download Photo",
-        "load": "Processing your document...", "done": "Analysis complete!"
-    },
-    "Deutsch": {
-        "home":"🏠 Start", "cv":"📄 CV & Foto", "up":"PDF Laden", 
-        "gen":"CV Optimieren", "dl":"CV Word Laden", 
-        "foto_tit":"Fotostudio", "up_f":"Foto laden", "dl_f":"Foto laden",
-        "load": "Wir bearbeiten Ihr Dokument...", "done": "Analyse abgeschlossen!"
-    },
-    "Español": {
-        "home":"🏠 Inicio", "cv":"📄 CV & Foto", "up":"Subir PDF", 
-        "gen":"Reformatear CV", "dl":"Descargar CV Word", 
-        "foto_tit":"Estudio Foto", "up_f":"Subir Foto", "dl_f":"Descargar Foto",
-        "load": "Procesando su documento...", "done": "¡Análisis completado!"
-    },
-    "Português": {
-        "home":"🏠 Início", "cv":"📄 CV & Foto", "up":"Enviar PDF", 
-        "gen":"Reformatar CV", "dl":"Baixar CV Word", 
-        "foto_tit":"Estúdio Foto", "up_f":"Enviar Foto", "dl_f":"Baixar Foto",
-        "load": "Processando seu documento...", "done": "Análise concluída!"
-    }
+    "Deutsch": {"cv":"📄 CV & Foto", "up":"PDF Laden", "gen":"CV Optimieren", "dl":"CV Word Laden", "foto":"Fotostudio", "load":"Wir bearbeiten Ihr Dokument...", "done":"Fertig!"},
+    "Italiano": {"cv":"📄 CV & Foto", "up":"Carica PDF", "gen":"Riformatta CV", "dl":"Scarica CV Word", "foto":"Studio Foto", "load":"Elaborazione...", "done":"Fatto!"},
+    "English": {"cv":"📄 CV & Photo", "up":"Upload PDF", "gen":"Reformat CV", "dl":"Download Word", "foto":"Photo Studio", "load":"Processing...", "done":"Done!"},
+    "Español": {"cv":"📄 CV & Foto", "up":"Subir PDF", "gen":"Reformatear CV", "dl":"Descargar Word", "foto":"Estudio Foto", "load":"Procesando...", "done":"¡Hecho!"},
+    "Português": {"cv":"📄 CV & Foto", "up":"Enviar PDF", "gen":"Reformatar CV", "dl":"Baixar Word", "foto":"Estúdio Foto", "load":"Processando...", "done":"Pronto!"}
 }
 t = trans[lang]
 
 # --- NAVIGAZIONE ---
-page = st.sidebar.radio("Menu", [t["home"], t["cv"], t["foto_tit"]])
+page = st.sidebar.radio("Menu", ["🏠 Home", t["cv"], t["foto"]])
 
 # --- HOME ---
-if page == t["home"]:
+if page == "🏠 Home":
     st.title("Global Career Coach 🚀")
-    st.info("Sistema pronto all'uso.")
+    st.info("Professional AI System Ready.")
 
 # --- CV ---
 elif page == t["cv"]:
     st.header(t["cv"])
+    if not api_key: st.warning("API Key?"); st.stop()
     
-    if not api_key:
-        st.warning("⬅️ Inserisci la chiave API a sinistra per iniziare.")
-        st.stop()
-        
     f = st.file_uploader(t["up"], type=["pdf"])
     
     if f and st.button(t["gen"]):
@@ -106,19 +85,20 @@ elif page == t["cv"]:
             txt = ""
             for p in reader.pages: txt += p.extract_text()
             
-            # Qui usiamo la traduzione dinamica per il messaggio di caricamento
             with st.spinner(t["load"]):
-                
+                # Prompt ottimizzato per struttura chiara
                 prompt = f"""
-                Agisci come un esperto HR internazionale. 
-                Riscrivi questo CV in {lang}. 
-                REGOLE FONDAMENTALI:
-                1. NON scrivere frasi introduttive. Inizia subito col Nome.
-                2. Usa un linguaggio 'Action-Oriented' e professionale.
-                3. Organizza bene le sezioni.
-                4. Non usare simboli markdown.
+                Sei un esperto HR. Riscrivi questo CV in {lang}.
                 
-                TESTO CV ORIGINALE:
+                REGOLE DI FORMATTAZIONE RIGIDE:
+                1. Prima riga: SOLO Nome e Cognome (nient'altro).
+                2. Seconda riga: Dati di contatto su una riga.
+                3. Per ogni sezione (es. PROFILO, ESPERIENZA, FORMAZIONE), scrivi il TITOLO tutto in MAIUSCOLO su una riga da solo.
+                4. Sotto il titolo scrivi il contenuto.
+                5. NON usare markdown (** o ##).
+                6. Sii professionale e sintetico.
+                
+                TESTO ORIGINALE:
                 {txt}
                 """
                 
@@ -128,23 +108,41 @@ elif page == t["cv"]:
                 if "ERRORE" in res:
                     st.error(res)
                 else:
-                    # --- CREAZIONE WORD ---
+                    # --- COSTRUZIONE WORD ---
                     doc = Document()
                     
-                    # Titolo
-                    title = doc.add_heading('CURRICULUM VITAE', 0)
-                    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    lines = res_clean.split('\n')
                     
-                    for line in res_clean.split('\n'):
+                    # 1. Nome (Gigante)
+                    if lines:
+                        head = doc.add_heading(lines[0].strip(), 0)
+                        head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        head.runs[0].font.color.rgb = RGBColor(0, 51, 102) # Blu scuro
+                    
+                    # 2. Resto del documento
+                    for line in lines[1:]:
                         line = line.strip()
-                        if line:
-                            if len(line) < 40 and line.isupper() and ":" not in line:
-                                p = doc.add_heading(line, level=1)
-                                run = p.runs[0]
-                                run.font.color.rgb = RGBColor(0, 51, 102) # Blu Scuro
-                            else:
-                                doc.add_paragraph(line)
-                    
+                        if not line: continue
+                        
+                        # Riconoscimento Titoli di Sezione (Corti e MAIUSCOLI)
+                        # Es: "ESPERIENZA PROFESSIONALE"
+                        if len(line) < 50 and line.isupper() and any(c.isalpha() for c in line):
+                            p = doc.add_paragraph()
+                            add_bottom_border(p) # AGGIUNGE LA RIGA SOTTO!
+                            runner = p.add_run(line)
+                            runner.bold = True
+                            runner.font.size = Pt(14)
+                            runner.font.color.rgb = RGBColor(0, 51, 102) # Blu scuro
+                            p.space_before = Pt(12)
+                            p.space_after = Pt(6)
+                        else:
+                            # Testo normale
+                            p = doc.add_paragraph(line)
+                            p.paragraph_format.space_after = Pt(4)
+                            runner = p.runs[0]
+                            runner.font.size = Pt(11)
+                            runner.font.name = 'Calibri'
+
                     bio = io.BytesIO()
                     doc.save(bio)
                     
@@ -155,24 +153,16 @@ elif page == t["cv"]:
             st.error(f"Errore: {e}")
 
 # --- FOTO ---
-elif page == t["foto_tit"]:
-    st.header(t["foto_tit"])
-    img = st.file_uploader(t["up_f"], type=["jpg", "png"])
+elif page == t["foto"]:
+    st.header(t["foto"])
+    img = st.file_uploader("Upload", type=["jpg", "png"])
     if img:
         col1, col2 = st.columns(2)
-        with col1:
-            st.write("Originale")
-            st.image(img, width=200)
-            
-        b = st.slider("Bordo / Border", 0, 50, 15)
-        
+        b = st.slider("Bordo/Border", 0, 50, 15)
         i = Image.open(img)
         ni = ImageOps.expand(i, border=b, fill='white')
-        
-        with col2:
-            st.write("Risultato")
-            st.image(ni, width=200)
-            
+        with col1: st.image(img, width=150, caption="Original")
+        with col2: st.image(ni, width=150, caption="Result")
         buf = io.BytesIO()
         ni.save(buf, format="JPEG")
-        st.download_button(t["dl_f"], buf.getvalue(), "Foto_CV.jpg", "image/jpeg")
+        st.download_button("Download", buf.getvalue(), "foto.jpg", "image/jpeg")
