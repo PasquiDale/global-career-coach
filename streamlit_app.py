@@ -19,27 +19,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS INJECTION ---
+# --- 2. CSS INJECTION (MANINA MOUSE) ---
 st.markdown("""
     <style>
-    div[data-baseweb="select"] > div { cursor: pointer !important; }
-    button { cursor: pointer !important; }
+    div[data-baseweb="select"] > div {
+        cursor: pointer !important;
+    }
+    button {
+        cursor: pointer !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 3. INIZIALIZZAZIONE SESSION STATE ---
-if 'lang_code' not in st.session_state: st.session_state.lang_code = 'it'
-if 'generated_data' not in st.session_state: st.session_state.generated_data = None
-if 'processed_photo' not in st.session_state: st.session_state.processed_photo = None
+if 'lang_code' not in st.session_state:
+    st.session_state.lang_code = 'it'
+if 'generated_data' not in st.session_state:
+    st.session_state.generated_data = None
+if 'processed_photo' not in st.session_state:
+    st.session_state.processed_photo = None
 
 # --- 4. COSTANTI E DIZIONARI ---
 
+# Mappa per visualizzazione lingua -> codice interno
 LANG_DISPLAY = {
-    "Italiano": "it", "English (US)": "en_us", "English (UK)": "en_uk",
-    "Deutsch (Deutschland)": "de_de", "Deutsch (Schweiz)": "de_ch",
-    "Français": "fr", "Español": "es", "Português": "pt"
+    "Italiano": "it",
+    "English (US)": "en_us",
+    "English (UK)": "en_uk",
+    "Deutsch (Deutschland)": "de_de",
+    "Deutsch (Schweiz)": "de_ch",
+    "Français": "fr",
+    "Español": "es",
+    "Português": "pt"
 }
 
+# Traduzioni Interfaccia (CON FIX DE_CH STELLENINSERAT)
 TRANSLATIONS = {
     'it': {'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'missing_key': 'Chiave API mancante'},
     'en_us': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'Missing API Key'},
@@ -51,6 +65,7 @@ TRANSLATIONS = {
     'en_uk': {'sidebar_title': 'Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'Missing API Key'}
 }
 
+# Titoli Sezioni forzati per lingua
 SECTION_TITLES = {
     'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE E FORMAZIONE', 'skills': 'COMPETENZE', 'personal_info': 'DATI PERSONALI', 'profile_summary': 'PROFILO PERSONALE'},
     'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE & FÄHIGKEITEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
@@ -65,22 +80,25 @@ SECTION_TITLES = {
 # --- 5. FUNZIONI HELPER ---
 
 def set_table_background(cell, color_hex):
+    """Imposta lo sfondo BLU della cella tramite XML."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
 def add_bottom_border(paragraph):
+    """Aggiunge una linea orizzontale BLU sotto il titolo."""
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
     bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')
-    bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), '20547D')
+    bottom.set(qn('w:sz'), '6')      # Spessore linea
+    bottom.set(qn('w:space'), '1')   # Spaziatura
+    bottom.set(qn('w:color'), '20547D') # Colore Blu Scuro
     pbdr.append(bottom)
     pPr.append(pbdr)
 
 def process_image(image_file, border_width):
+    """Aggiunge bordo bianco alla foto."""
     img = Image.open(image_file)
     if img.mode != 'RGB':
         img = img.convert('RGB')
@@ -90,23 +108,27 @@ def clean_text(text):
     if not text: return ""
     return text.replace("**", "").replace("##", "").strip()
 
-# --- FUNZIONE CREAZIONE CV (CONGELATA) ---
 def create_cv_docx(data, photo_stream, lang_code):
+    """Crea il file Word con layout banner preciso e titoli tradotti."""
     doc = Document()
+    
+    # 1. Impostazione Margini
     section = doc.sections[0]
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
     section.top_margin = Inches(0.5)
     
-    # Header Banner Blu
+    # --- HEADER BANNER (Tabella 1x2 - Sfondo Blu Scuro) ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    col0_width = Inches(1.2)
-    col1_width = Inches(6.1)
+    # Dimensioni Colonne
+    col0_width = Inches(1.2) # Foto
+    col1_width = Inches(6.1) # Testo
     table.columns[0].width = col0_width
     table.columns[1].width = col1_width
     
+    # Altezza Riga Fissa
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
     row.height = Inches(2.0)
@@ -114,10 +136,11 @@ def create_cv_docx(data, photo_stream, lang_code):
     cell_foto = row.cells[0]
     cell_text = row.cells[1]
     
+    # Colore Sfondo (Blu Scuro #20547d) - CRUCIALE
     set_table_background(cell_foto, "20547D")
     set_table_background(cell_text, "20547D")
     
-    # Foto
+    # --- FOTO (SINISTRA) ---
     cell_foto.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_stream:
         p_foto = cell_foto.paragraphs[0]
@@ -128,8 +151,10 @@ def create_cv_docx(data, photo_stream, lang_code):
         run_foto = p_foto.add_run()
         run_foto.add_picture(photo_stream, height=Inches(1.5))
     
-    # Testo Intestazione
+    # --- TESTO INTESTAZIONE (DESTRA - BIANCO) ---
     cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    
+    # Nome
     p_name = cell_text.paragraphs[0]
     p_name.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_name.paragraph_format.space_before = Pt(0)
@@ -138,54 +163,64 @@ def create_cv_docx(data, photo_stream, lang_code):
     
     info = data.get('personal_info', {})
     full_name = f"{info.get('first_name', '')} {info.get('last_name', '')}"
+    
     run_name = p_name.add_run(clean_text(full_name))
     run_name.font.size = Pt(26)
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
+    run_name.font.color.rgb = RGBColor(255, 255, 255) # BIANCO
     run_name.font.name = 'Arial'
     run_name.bold = True
     
+    # Dati Contatto
     p_info = cell_text.add_paragraph()
     p_info.paragraph_format.space_before = Pt(6)
     p_info.paragraph_format.space_after = Pt(0)
+    
     contact_str = f"{clean_text(info.get('address', ''))}\n{clean_text(info.get('phone', ''))} | {clean_text(info.get('email', ''))}"
     run_info = p_info.add_run(contact_str)
     run_info.font.size = Pt(10)
-    run_info.font.color.rgb = RGBColor(220, 220, 220)
+    run_info.font.color.rgb = RGBColor(220, 220, 220) # Grigio Chiaro
     run_info.font.name = 'Arial'
     
+    # Spazio dopo banner
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
     
-    # Body
+    # --- BODY (Titoli tradotti e Linee) ---
     titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
-    cv_sections = data.get('cv_sections', {})
 
-    if cv_sections.get('profile_summary'):
+    # 1. PROFILO (Subito dopo Header - UNA SOLA VOLTA)
+    if data.get('profile_summary'):
         h = doc.add_heading(titles.get('profile_summary', 'PROFILE'), level=1)
-        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125) # Blu simile al banner
         h.runs[0].font.name = 'Arial'
         h.runs[0].font.size = Pt(12)
         h.runs[0].bold = True
-        add_bottom_border(h)
-        p = doc.add_paragraph(clean_text(cv_sections.get('profile_summary')))
+        add_bottom_border(h) # LINEA BLU SOTTO
+        
+        p = doc.add_paragraph(clean_text(data.get('profile_summary')))
         p.paragraph_format.space_after = Pt(12)
 
+    # 2. ALTRE SEZIONI
     sections_to_print = ['experience', 'education', 'skills', 'languages']
+    
     for key in sections_to_print:
-        content = cv_sections.get(key)
+        content = data.get(key)
         if content:
+            # Titolo Sezione Tradotto
             title_text = titles.get(key, key.upper())
+            
             h = doc.add_heading(title_text, level=1)
             h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
             h.runs[0].font.name = 'Arial'
             h.runs[0].font.size = Pt(12)
             h.runs[0].bold = True
-            add_bottom_border(h)
+            add_bottom_border(h) # LINEA BLU SOTTO
             
             if isinstance(content, list):
                 for item in content:
                     doc.add_paragraph(clean_text(str(item)), style='List Bullet')
             else:
                 doc.add_paragraph(clean_text(str(content)))
+            
             doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
     buffer = io.BytesIO()
@@ -193,13 +228,14 @@ def create_cv_docx(data, photo_stream, lang_code):
     buffer.seek(0)
     return buffer
 
-# --- FUNZIONE CREAZIONE LETTERA (CONGELATA) ---
-def create_letter_docx(letter_data, personal_info):
+def create_letter_docx(text, personal_info, letter_data):
+    """Crea la lettera di presentazione con layout business."""
     doc = Document()
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(11)
     
+    # 1. MITTENTE (Alto SX)
     sender_block = f"{personal_info.get('first_name', '')} {personal_info.get('last_name', '')}\n"
     sender_block += f"{personal_info.get('address', '')}\n"
     sender_block += f"{personal_info.get('phone', '')}\n{personal_info.get('email', '')}"
@@ -209,16 +245,19 @@ def create_letter_docx(letter_data, personal_info):
     p_sender.runs[0].font.size = Pt(10)
     doc.add_paragraph() 
     
+    # 2. DATA (Alto SX)
     date_str = letter_data.get('date_line', datetime.datetime.now().strftime("%d.%m.%Y"))
     p_date = doc.add_paragraph(clean_text(date_str))
     p_date.alignment = WD_ALIGN_PARAGRAPH.LEFT
     doc.add_paragraph() 
     
+    # 3. DESTINATARIO
     recipient = clean_text(letter_data.get('recipient_block', 'Hiring Manager'))
     p_rec = doc.add_paragraph(recipient)
     p_rec.alignment = WD_ALIGN_PARAGRAPH.LEFT
     doc.add_paragraph() 
     
+    # 4. OGGETTO (Grassetto 14pt)
     subject = clean_text(letter_data.get('subject_line', 'Application'))
     p_sub = doc.add_paragraph()
     run_sub = p_sub.add_run(subject)
@@ -226,13 +265,16 @@ def create_letter_docx(letter_data, personal_info):
     run_sub.font.size = Pt(14)
     doc.add_paragraph() 
     
-    body = clean_text(letter_data.get('body_content', ''))
+    # 5. CORPO
+    body = clean_text(text)
     doc.add_paragraph(body)
     doc.add_paragraph() 
     
+    # 6. CHIUSURA
     closing = clean_text(letter_data.get('closing', 'Freundliche Grüsse'))
     doc.add_paragraph(closing)
     
+    # 4 righe vuote per firma
     for _ in range(4):
         doc.add_paragraph()
         
@@ -246,8 +288,9 @@ def create_letter_docx(letter_data, personal_info):
 # --- 6. MAIN LOOP ---
 
 def main():
-    # Sidebar
+    # --- LOGICA LINGUA DINAMICA ---
     current_code = st.session_state.lang_code
+    
     current_name = list(LANG_DISPLAY.keys())[0] 
     for name, code in LANG_DISPLAY.items():
         if code == current_code:
@@ -255,6 +298,8 @@ def main():
             break
             
     current_label = TRANSLATIONS.get(current_code, TRANSLATIONS['it'])['lang_label']
+    
+    # Sidebar
     lang_name = st.sidebar.selectbox(current_label, list(LANG_DISPLAY.keys()), index=list(LANG_DISPLAY.keys()).index(current_name))
     
     new_lang_code = LANG_DISPLAY[lang_name]
@@ -263,8 +308,10 @@ def main():
         st.rerun()
 
     t = TRANSLATIONS[st.session_state.lang_code]
+    
     st.title(t['main_title'])
     
+    # API Key
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
@@ -304,10 +351,8 @@ def main():
                     text = ""
                     for p in reader.pages: text += p.extract_text() + "\n"
                     
-                    # 2. Chiama AI con GOOGLE SEARCH
-                    # Configurazione strumento di ricerca
-                    tools = [{"google_search": {}}]
-                    model = genai.GenerativeModel("models/gemini-3-pro-preview", tools=tools)
+                    # 2. Chiama AI (SENZA TOOLS per evitare crash)
+                    model = genai.GenerativeModel("models/gemini-3-pro-preview")
                     
                     prompt = f"""
                     Role: Professional HR Expert.
@@ -316,8 +361,8 @@ def main():
                     Task: Analyze CV and Job Description.
                     
                     INSTRUCTIONS FOR LETTER:
-                    1. **USE GOOGLE SEARCH** to find the official, complete physical address of the hiring company mentioned in the job offer. Do not guess. If search fails, use data from text.
-                    2. If German language: Ensure body text starts with CAPITAL letter even after comma (e.g. "Sehr geehrte Damen und Herren,\n\nIch bewerbe mich...").
+                    1. Extract Company Name and Address from Job Description.
+                    2. If German language: Ensure body text starts with CAPITAL letter even after comma.
                     
                     OUTPUT JSON STRICTLY:
                     {{
@@ -344,9 +389,8 @@ def main():
                     
                     response = model.generate_content(prompt)
                     
-                    # Pulizia risposta per evitare errori JSON se il modello restituisce testo extra
+                    # Pulizia JSON
                     json_str = response.text
-                    # Cerca il primo { e l'ultimo }
                     start_idx = json_str.find('{')
                     end_idx = json_str.rfind('}') + 1
                     if start_idx != -1 and end_idx != -1:
@@ -383,7 +427,7 @@ def main():
             
         with tab2:
             letter_data = data.get('letter_data', {})
-            docx_l = create_letter_docx(letter_data, data.get('personal_info', {}))
+            docx_l = create_letter_docx(letter_data.get('body_content', ''), data.get('personal_info', {}), letter_data)
             
             st.download_button(
                 label=f"📥 {t['down_let']}",
