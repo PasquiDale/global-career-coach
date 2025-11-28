@@ -18,7 +18,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. INIZIALIZZAZIONE SESSION STATE ---
+# --- 2. CSS INJECTION (MANINA MOUSE) ---
+st.markdown("""
+    <style>
+    div[data-baseweb="select"] > div {
+        cursor: pointer !important;
+    }
+    button {
+        cursor: pointer !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 3. INIZIALIZZAZIONE SESSION STATE ---
 if 'lang_code' not in st.session_state:
     st.session_state.lang_code = 'it'
 if 'generated_data' not in st.session_state:
@@ -26,7 +38,7 @@ if 'generated_data' not in st.session_state:
 if 'processed_photo' not in st.session_state:
     st.session_state.processed_photo = None
 
-# --- 3. COSTANTI E DIZIONARI ---
+# --- 4. COSTANTI E DIZIONARI ---
 
 # Mappa per visualizzazione lingua -> codice interno
 LANG_DISPLAY = {
@@ -64,7 +76,7 @@ SECTION_TITLES = {
     'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'personal_info': 'DADOS PESSOAIS', 'profile_summary': 'PERFIL PROFISSIONAL'}
 }
 
-# --- 4. FUNZIONI HELPER ---
+# --- 5. FUNZIONI HELPER ---
 
 def set_table_background(cell, color_hex):
     """Imposta lo sfondo BLU della cella tramite XML."""
@@ -153,7 +165,7 @@ def create_docx(data, photo_stream, lang_code):
     
     run_name = p_name.add_run(clean_text(full_name))
     run_name.font.size = Pt(26)
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
+    run_name.font.color.rgb = RGBColor(255, 255, 255) # BIANCO
     run_name.font.name = 'Arial'
     run_name.bold = True
     
@@ -165,7 +177,7 @@ def create_docx(data, photo_stream, lang_code):
     contact_str = f"{clean_text(info.get('address', ''))}\n{clean_text(info.get('phone', ''))} | {clean_text(info.get('email', ''))}"
     run_info = p_info.add_run(contact_str)
     run_info.font.size = Pt(10)
-    run_info.font.color.rgb = RGBColor(220, 220, 220)
+    run_info.font.color.rgb = RGBColor(220, 220, 220) # Grigio Chiaro
     run_info.font.name = 'Arial'
     
     # Spazio dopo banner
@@ -202,6 +214,7 @@ def create_docx(data, photo_stream, lang_code):
             h.runs[0].bold = True
             add_bottom_border(h) # LINEA BLU SOTTO
             
+            # Contenuto
             if isinstance(content, list):
                 for item in content:
                     doc.add_paragraph(clean_text(str(item)), style='List Bullet')
@@ -225,7 +238,7 @@ def create_letter_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- 5. MAIN LOOP ---
+# --- 6. MAIN LOOP ---
 
 def main():
     # Sidebar
