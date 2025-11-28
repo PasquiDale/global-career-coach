@@ -16,7 +16,6 @@ from datetime import datetime
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
     page_title="Global Career Coach",
-    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -26,7 +25,7 @@ st.markdown("""
 <style>
     .main .block-container { padding-top: 2rem; }
     div[data-testid="stFileUploader"] { margin-bottom: 1rem; }
-    .stButton button { width: 100%; border-radius: 5px; font-weight: bold; background-color: #0E2F44; color: white; }
+    .stButton button { width: 100%; border-radius: 5px; font-weight: bold; background-color: #20547D; color: white; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
@@ -59,20 +58,21 @@ TRANSLATIONS = {
     'pt': {'sidebar_title': 'Configurações', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro'}
 }
 
-# Titoli delle sezioni mappati per lingua per la creazione del Word
-SECTION_HEADERS_MAP = {
-    'profile_summary': {'it': 'PROFILO PERSONALE', 'de_ch': 'PERSÖNLICHES PROFIL', 'de_de': 'PERSÖNLICHES PROFIL', 'en_us': 'PROFESSIONAL SUMMARY', 'en_uk': 'PROFESSIONAL SUMMARY', 'fr': 'PROFIL PROFESSIONNEL', 'es': 'PERFIL PROFESIONAL', 'pt': 'PERFIL PROFISSIONAL'},
-    'experience': {'it': 'ESPERIENZA PROFESSIONALE', 'de_ch': 'BERUFSERFAHRUNG', 'de_de': 'BERUFLICHER WERDEGANG', 'en_us': 'WORK EXPERIENCE', 'en_uk': 'WORK EXPERIENCE', 'fr': 'EXPÉRIENCE PROFESSIONNELLE', 'es': 'EXPERIENCIA LABORAL', 'pt': 'EXPERIÊNCIA PROFISSIONAL'},
-    'education': {'it': 'ISTRUZIONE E FORMAZIONE', 'de_ch': 'AUSBILDUNG', 'de_de': 'AUSBILDUNG', 'en_us': 'EDUCATION', 'en_uk': 'EDUCATION', 'fr': 'FORMATION', 'es': 'EDUCACIÓN', 'pt': 'EDUCAÇÃO'},
-    'skills': {'it': 'COMPETENZE', 'de_ch': 'IT-KENNTNISSE & FÄHIGKEITEN', 'de_de': 'KENNTNISSE', 'en_us': 'SKILLS', 'en_uk': 'SKILLS', 'fr': 'COMPÉTENCES', 'es': 'HABILIDADES', 'pt': 'COMPETÊNCIAS'},
-    'languages': {'it': 'LINGUE', 'de_ch': 'SPRACHKENNTNISSE', 'de_de': 'SPRACHKENNTNISSE', 'en_us': 'LANGUAGES', 'en_uk': 'LANGUAGES', 'fr': 'LANGUES', 'es': 'IDIOMAS', 'pt': 'IDIOMAS'},
-    'interests': {'it': 'INTERESSI', 'de_ch': 'INTERESSEN', 'de_de': 'INTERESSEN', 'en_us': 'INTERESTS', 'en_uk': 'INTERESTS', 'fr': 'INTÉRÊTS', 'es': 'INTERESES', 'pt': 'INTERESSES'}
+SECTION_TITLES = {
+    'it': ["ESPERIENZA PROFESSIONALE", "ISTRUZIONE E FORMAZIONE", "COMPETENZE LINGUISTICHE", "COMPETENZE TECNICHE", "HOBBY E INTERESSI", "PROFILO PERSONALE"],
+    'en_us': ["PROFESSIONAL EXPERIENCE", "EDUCATION", "LANGUAGES", "TECHNICAL SKILLS", "HOBBIES & INTERESTS", "PROFESSIONAL PROFILE"],
+    'en_uk': ["PROFESSIONAL EXPERIENCE", "EDUCATION", "LANGUAGES", "TECHNICAL SKILLS", "HOBBIES & INTERESTS", "PROFESSIONAL PROFILE"],
+    'de_ch': ["BERUFSERFAHRUNG", "AUSBILDUNG", "SPRACHKENNTNISSE", "IT-KENNTNISSE", "INTERESSEN", "PERSÖNLICHES PROFIL"],
+    'de_de': ["BERUFLICHER WERDEGANG", "AUSBILDUNG", "SPRACHKENNTNISSE", "EDV-KENNTNISSE", "INTERESSEN", "PERSÖNLICHES PROFIL"],
+    'fr': ["EXPÉRIENCE PROFESSIONNELLE", "FORMATION", "LANGUES", "COMPÉTENCES TECHNIQUES", "CENTRES D'INTÉRÊT", "PROFIL PROFESSIONNEL"],
+    'es': ["EXPERIENCIA PROFESIONAL", "EDUCACIÓN", "IDIOMAS", "HABILIDADES TÉCNICAS", "INTERESES", "PERFIL PROFESIONAL"],
+    'pt': ["EXPERIÊNCIA PROFISSIONAL", "EDUCAÇÃO", "IDIOMAS", "COMPETÊNCIAS TÉCNICAS", "INTERESSES", "PERFIL PROFISSIONAL"]
 }
 
 # --- 5. FUNZIONI HELPER ---
 
 def get_todays_date(lang_code):
-    """Restituisce la data corrente formattata in base alla lingua."""
+    """Genera la data corrente formattata in base alla lingua."""
     now = datetime.now()
     if lang_code in ['de_ch', 'de_de', 'it', 'fr', 'pt', 'es']:
         return now.strftime("%d.%m.%Y")
@@ -80,13 +80,10 @@ def get_todays_date(lang_code):
         return now.strftime("%B %d, %Y")
     return now.strftime("%Y-%m-%d")
 
-def set_table_background(table, color_hex):
-    """Imposta lo sfondo blu scuro per l'header del CV."""
+def set_table_background(cell, color_hex):
+    """Imposta lo sfondo della cella (XML hacking)."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
-    for row in table.rows:
-        for cell in row.cells:
-            if cell._tc.get_or_add_tcPr().find(qn('w:shd')) is None:
-                cell._tc.get_or_add_tcPr().append(shading_elm)
+    cell._tc.get_or_add_tcPr().append(shading_elm)
 
 def add_bottom_border(paragraph):
     """Aggiunge una linea orizzontale sotto il paragrafo."""
@@ -102,7 +99,6 @@ def add_bottom_border(paragraph):
     pPr.append(pbdr)
 
 def process_image(uploaded_file, border_width):
-    """Aggiunge bordo alla foto."""
     if not uploaded_file: return None
     try:
         img = Image.open(uploaded_file).convert("RGB")
@@ -119,7 +115,7 @@ def extract_text_from_pdf(pdf_file):
         for page in reader.pages:
             text += page.extract_text() + "\n"
         return text
-    except Exception as e:
+    except Exception:
         return ""
 
 # --- 6. CORE LOGIC: CREAZIONE CV WORD ---
@@ -127,21 +123,28 @@ def extract_text_from_pdf(pdf_file):
 def create_cv_docx(json_data, photo_img, lang_code):
     doc = Document()
     
-    # Margini Professionali
+    # Margini
     section = doc.sections[0]
-    section.top_margin = Cm(1.5)
-    section.bottom_margin = Cm(1.5)
+    section.top_margin = Cm(1.2)
+    section.bottom_margin = Cm(1.2)
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-    # --- HEADER (BANNER BLU) ---
+    # --- HEADER BLU (#20547D) ---
     header_table = doc.add_table(rows=1, cols=2)
     header_table.autofit = False
-    header_table.columns[0].width = Cm(5.0)
-    header_table.columns[1].width = Cm(11.5)
-    set_table_background(header_table, "1F4E79") # Blu Scuro
+    header_table.allow_autofit = False
     
-    # Foto
+    # Larghezza colonne
+    header_table.columns[0].width = Inches(1.5)  # Foto
+    header_table.columns[1].width = Inches(6.0)  # Testo
+    
+    # Applicazione Sfondo Blu
+    for row in header_table.rows:
+        for cell in row.cells:
+            set_table_background(cell, "20547D") # Blu richiesto
+
+    # Cella 1: Foto
     cell_photo = header_table.cell(0, 0)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_img:
@@ -151,60 +154,65 @@ def create_cv_docx(json_data, photo_img, lang_code):
         p = cell_photo.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(img_buffer, width=Cm(4.0))
+        run.add_picture(img_buffer, width=Inches(1.2))
 
-    # Dati Personali
+    # Cella 2: Dati Personali
     cell_info = header_table.cell(0, 1)
     cell_info.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     pi = json_data.get('personal_info', {})
     
     p_info = cell_info.paragraphs[0]
-    # Nome
+    p_info.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    
+    # Nome (Bianco)
     name_run = p_info.add_run(f"{pi.get('name', '')}\n")
     name_run.font.name = 'Calibri'
-    name_run.font.size = Pt(24)
+    name_run.font.size = Pt(22)
     name_run.font.color.rgb = RGBColor(255, 255, 255)
     name_run.bold = True
-    # Contatti
-    info_text = f"{pi.get('address', '')} | {pi.get('phone', '')} | {pi.get('email', '')}\n{pi.get('linkedin', '')}"
-    info_run = p_info.add_run(info_text)
+    
+    # Dati contatto (Bianco)
+    contact_text = f"{pi.get('address', '')} | {pi.get('phone', '')} | {pi.get('email', '')}\n{pi.get('linkedin', '')}"
+    info_run = p_info.add_run(contact_text)
     info_run.font.name = 'Calibri'
     info_run.font.size = Pt(10)
     info_run.font.color.rgb = RGBColor(255, 255, 255)
 
     doc.add_paragraph().space_after = Pt(12)
 
-    # --- BODY SECTIONS (ROBUSTO) ---
+    # --- BODY ---
     cv_sections = json_data.get('cv_sections', {})
     
-    # Ordine di visualizzazione delle sezioni
-    section_order = ['profile_summary', 'experience', 'education', 'skills', 'languages', 'interests']
+    # Ordine sezioni
+    keys_order = ['profile_summary', 'experience', 'education', 'skills', 'languages', 'interests']
     
-    for key in section_order:
+    for key in keys_order:
         content = cv_sections.get(key)
-        
-        # Se la sezione è vuota o None nel JSON, saltala
-        if not content:
-            continue
+        if not content: continue
             
-        # Titolo Sezione Localizzato
+        # Titolo Sezione
         title_text = SECTION_HEADERS_MAP.get(key, {}).get(lang_code, key.upper())
-        
+        # Fallback se la mappa fallisce, usa la chiave dal JSON
+        if title_text == key.upper() and key in SECTION_TITLES.get(lang_code, []): 
+             pass # La logica qui sopra è un po' ridondante ma sicura
+
         h = doc.add_paragraph()
         add_bottom_border(h)
         run_h = h.add_run(title_text)
         run_h.font.name = 'Calibri'
         run_h.font.size = Pt(12)
-        run_h.font.color.rgb = RGBColor(31, 78, 121)
+        run_h.font.color.rgb = RGBColor(32, 84, 125) # Blu simile header
         run_h.bold = True
         h.space_before = Pt(12)
         h.space_after = Pt(6)
         
-        # Gestione Contenuto (Lista o Stringa)
+        # Contenuto
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
                 p.paragraph_format.space_after = Pt(2)
+            # SPAZIO EXTRA TRA ESPERIENZE (Richiesto)
+            doc.add_paragraph("") 
         else:
             p = doc.add_paragraph(str(content))
             p.paragraph_format.space_after = Pt(6)
@@ -218,6 +226,8 @@ def create_cv_docx(json_data, photo_img, lang_code):
 
 def create_letter_docx(json_data, lang_code, candidate_name):
     doc = Document()
+    
+    # Margini Standard
     section = doc.sections[0]
     section.top_margin = Cm(2.5)
     section.left_margin = Cm(2.5)
@@ -228,31 +238,39 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     style_normal.font.size = Pt(11)
 
     ld = json_data.get('letter_data', {})
+    pi = json_data.get('personal_info', {})
 
-    # 1. Destinatario
+    # 1. MITTENTE (Alto Sinistra)
+    sender_info = f"{pi.get('name', '')}\n{pi.get('address', '')}\n{pi.get('phone', '')}\n{pi.get('email', '')}"
+    p_sender = doc.add_paragraph(sender_info)
+    p_sender.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p_sender.runs[0].font.size = Pt(10)
+    p_sender.space_after = Pt(24) # Spazio dopo mittente
+
+    # 2. DATA (Sinistra, come richiesto)
+    real_date = get_todays_date(lang_code)
+    p_date = doc.add_paragraph(real_date)
+    p_date.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p_date.space_after = Pt(12)
+
+    # 3. DESTINATARIO (Sinistra)
     rec = ld.get('recipient_block', '')
     if rec:
         p_rec = doc.add_paragraph(rec)
-        p_rec.space_after = Pt(12)
+        p_rec.space_after = Pt(24)
 
-    # 2. DATA REALE (Python generated)
-    real_date = get_todays_date(lang_code)
-    p_date = doc.add_paragraph(real_date)
-    p_date.alignment = WD_ALIGN_PARAGRAPH.RIGHT 
-    p_date.space_after = Pt(18)
-
-    # 3. Oggetto
+    # 4. OGGETTO (Grassetto)
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
         run_subj = p_subj.add_run(subj)
         run_subj.bold = True
+        run_subj.font.size = Pt(12)
         p_subj.space_after = Pt(12)
 
-    # 4. Corpo
+    # 5. CORPO
     body = ld.get('body_content', '')
-    # Pulizia markdown
-    body = body.replace('**', '').replace('#', '')
+    body = body.replace('**', '').replace('#', '') # Pulizia
     
     for para in body.split('\n'):
         if para.strip():
@@ -262,27 +280,22 @@ def create_letter_docx(json_data, lang_code, candidate_name):
 
     doc.add_paragraph().space_after = Pt(12)
 
-    # 5. FIRMA INDIVISIBILE (FIXED)
+    # 6. FIRMA (Saluti + Spazio + Nome indivisibili)
     closing = ld.get('closing', 'Freundliche Grüsse')
-    
-    # Rimuovi il nome se l'AI l'ha messo nei saluti (es. "Saluti, Mario")
     if candidate_name:
-        closing = closing.replace(candidate_name, "").strip()
-        # Rimuovi virgola finale se rimasta appesa da sola, o pulizia extra
-        closing = closing.strip()
-    
-    # Blocco Saluti + Spazio + Nome
+        closing = closing.replace(candidate_name, "").strip() # Evita duplicati
+        
     p_close = doc.add_paragraph(closing)
-    p_close.paragraph_format.keep_with_next = True # Incolla al prossimo
+    p_close.paragraph_format.keep_with_next = True
     
-    # 4 righe vuote incollate tra loro
-    for _ in range(4):
-        p_space = doc.add_paragraph()
-        p_space.paragraph_format.keep_with_next = True
-        p_space.paragraph_format.space_after = Pt(0)
+    # 3 Righe vuote per la firma a mano
+    for _ in range(3):
+        p_s = doc.add_paragraph()
+        p_s.paragraph_format.keep_with_next = True
+        p_s.paragraph_format.space_after = Pt(0)
 
-    # Nome Candidato (Fine blocco)
-    p_sign = doc.add_paragraph(candidate_name)
+    # Nome stampato
+    p_name = doc.add_paragraph(candidate_name)
     
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -337,11 +350,11 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # --- CHIAMATA AI CON SCHEMA RIGIDO ---
+                # --- CHIAMATA AI ---
                 model = genai.GenerativeModel("models/gemini-3-pro-preview")
                 
                 prompt = f"""
-                You are a professional HR Expert.
+                Act as an expert HR Resume Writer.
                 Target Language: {lang_sel} ({st.session_state.lang_code}).
                 
                 INPUT:
@@ -349,36 +362,35 @@ if st.button(t['btn_label'], type="primary"):
                 2. JOB DESCRIPTION: {job_desc}
                 
                 TASK:
-                Generate a structured JSON containing the optimized CV and Cover Letter.
+                Generate a structured JSON.
                 
-                MANDATORY JSON STRUCTURE (Do not verify layout, just data):
+                MANDATORY JSON STRUCTURE:
                 {{
                     "personal_info": {{ "name": "...", "address": "...", "phone": "...", "email": "...", "linkedin": "..." }},
                     "cv_sections": {{
-                        "profile_summary": "Short professional summary...",
-                        "experience": ["Role, Company (Year) - details...", "Role 2..."],
-                        "education": ["Degree, School (Year)..."],
+                        "profile_summary": "Short summary...",
+                        "experience": ["Role | Company | Date ... description...", "Role 2..."],
+                        "education": ["Degree..."],
                         "skills": ["Skill 1", "Skill 2..."],
-                        "languages": ["Lang 1", "Lang 2..."],
+                        "languages": ["Lang 1..."],
                         "interests": ["Interest 1..."]
                     }},
                     "letter_data": {{
                         "recipient_block": "Company Name\\nAddress",
-                        "subject_line": "Subject: ...",
-                        "body_content": "Full body of the letter...",
-                        "closing": "Greeting (e.g. Freundliche Grüsse)"
+                        "subject_line": "Subject...",
+                        "body_content": "Letter body...",
+                        "closing": "Greeting ONLY (e.g. Freundliche Grüsse)"
                     }}
                 }}
                 
                 RULES:
-                - Do NOT include Date in JSON (I add it via code).
-                - Do NOT include Candidate Name in 'closing' (I add it via code).
-                - Ensure 'experience' and 'education' are LISTS of strings.
+                - Output strict JSON.
+                - NO candidate name in 'closing'.
+                - 'experience' MUST be a list of strings.
                 """
                 
                 response = model.generate_content(prompt)
                 
-                # Parsing JSON
                 json_str = response.text.strip()
                 if json_str.startswith("```json"):
                     json_str = json_str[7:-3]
@@ -402,7 +414,7 @@ if st.session_state.generated_data:
             file_name=f"CV_Optimized.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-        st.json(data['cv_sections'])
+        st.json(data['cv_sections']) # Preview
 
     with tabs[1]:
         candidate_name = data['personal_info'].get('name', 'Candidate')
