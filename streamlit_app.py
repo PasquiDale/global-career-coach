@@ -52,7 +52,7 @@ TRANSLATIONS = {
     }
 }
 
-# --- 4. FUNZIONI UTILITY (Backend) ---
+# --- 4. FUNZIONI UTILITY ---
 
 def get_text_from_pdf(pdf_file):
     try:
@@ -68,10 +68,8 @@ def process_image(uploaded_file, border_size):
     """Aggiunge bordo bianco e prepara per Word"""
     try:
         img = Image.open(uploaded_file)
-        # Assicura RGB
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        # Aggiunge bordo
         if border_size > 0:
             img = ImageOps.expand(img, border=border_size, fill='white')
         
@@ -92,7 +90,7 @@ def set_cell_background(cell, color_hex):
     tcPr.append(shd)
 
 def create_cv_docx(data_json, photo_bytes):
-    """Crea il DOCX del CV con layout ottimizzato"""
+    """Crea il DOCX con FOTO A SINISTRA (Left Alignment)"""
     doc = Document()
     
     # Margini stretti
@@ -106,14 +104,14 @@ def create_cv_docx(data_json, photo_bytes):
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # LAYOUT CRITICO: Colonna foto stretta, colonna testo larga
-    col0_width = Inches(1.35) # Abbastanza per la foto
-    col1_width = Inches(6.15) # Il resto della pagina
+    # DEFINIZIONE COLONNE
+    col0_width = Inches(1.3)  # Colonna foto (Stretta per eliminare spazi)
+    col1_width = Inches(6.2)  # Colonna testo
     
     table.columns[0].width = col0_width
     table.columns[1].width = col1_width
     
-    # Altezza fissa riga (Banner)
+    # ALTEZZA FISSA RIGA
     row = table.rows[0]
     row.height = Inches(2.0)
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
@@ -121,28 +119,28 @@ def create_cv_docx(data_json, photo_bytes):
     cell_img = row.cells[0]
     cell_txt = row.cells[1]
     
-    # Colore sfondo Blu Scuro (#1F4E79)
-    bg_color = "1F4E79" 
+    # Sfondo Blu Scuro
+    bg_color = "1F4E79"
     set_cell_background(cell_img, bg_color)
     set_cell_background(cell_txt, bg_color)
     
-    # Inserimento Foto
+    # --- INSERIMENTO FOTO (ALLINEAMENTO SINISTRA) ---
+    # Questo è il fix richiesto per eliminare lo spazio vuoto a sinistra
     cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     p_img = cell_img.paragraphs[0]
-    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    # Rimuovi margini paragrafo per centratura perfetta
+    p_img.alignment = WD_ALIGN_PARAGRAPH.LEFT # <--- FOTO A SINISTRA
+    p_img.paragraph_format.left_indent = Pt(0)
     p_img.paragraph_format.space_before = Pt(0)
-    p_img.paragraph_format.space_after = Pt(0)
     
     if photo_bytes:
         run_img = p_img.add_run()
-        run_img.add_picture(photo_bytes, width=Inches(1.25)) # Foto leggermente più piccola della colonna
+        run_img.add_picture(photo_bytes, width=Inches(1.25))
     
-    # Inserimento Testo Banner
+    # --- INSERIMENTO TESTO BANNER ---
     cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     p_txt = cell_txt.paragraphs[0]
-    p_txt.alignment = WD_ALIGN_PARAGRAPH.LEFT # Allineato a sinistra vicino alla foto
-    p_txt.paragraph_format.left_indent = Pt(10) # Piccolo rientro
+    p_txt.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p_txt.paragraph_format.left_indent = Pt(10)
     
     # Nome
     name_run = p_txt.add_run(f"{data_json.get('name', 'Name Surname').upper()}\n")
@@ -151,24 +149,21 @@ def create_cv_docx(data_json, photo_bytes):
     name_run.font.color.rgb = RGBColor(255, 255, 255)
     name_run.bold = True
     
-    # Dati Contatto (Address | Phone | Email)
+    # Contatti
     contact_info = f"{data_json.get('address', '')}\n{data_json.get('phone', '')} • {data_json.get('email', '')}"
     contact_run = p_txt.add_run(contact_info)
     contact_run.font.name = 'Arial'
     contact_run.font.size = Pt(10)
     contact_run.font.color.rgb = RGBColor(230, 230, 230)
 
-    # Spazio dopo banner
     doc.add_paragraph().space_after = Pt(12)
 
     # --- CORPO DEL CV ---
     cv_body = data_json.get('cv_content', '')
-    
     for line in cv_body.split('\n'):
         line = line.strip()
         if not line: continue
         
-        # Gestione Titoli (Maiuscolo e Corto -> Titolo Sezione)
         if line.isupper() and len(line) < 50 and any(c.isalpha() for c in line):
             p = doc.add_paragraph()
             p.space_before = Pt(12)
@@ -176,12 +171,11 @@ def create_cv_docx(data_json, photo_bytes):
             run = p.add_run(line)
             run.font.name = 'Arial'
             run.font.size = Pt(12)
-            run.font.color.rgb = RGBColor(31, 78, 121) # Blu scuro
+            run.font.color.rgb = RGBColor(31, 78, 121)
             run.bold = True
             
-            # Linea sotto il titolo
-            p_element = p._p
-            pPr = p_element.get_or_add_pPr()
+            p_elm = p._p
+            pPr = p_elm.get_or_add_pPr()
             pbdr = OxmlElement('w:pBdr')
             bottom = OxmlElement('w:bottom')
             bottom.set(qn('w:val'), 'single')
@@ -191,7 +185,6 @@ def create_cv_docx(data_json, photo_bytes):
             pbdr.append(bottom)
             pPr.append(pbdr)
         else:
-            # Testo Normale
             p = doc.add_paragraph(line)
             p.paragraph_format.space_after = Pt(2)
             run = p.runs[0]
@@ -209,116 +202,81 @@ def create_letter_docx(text_content):
     font = style.font
     font.name = 'Calibri'
     font.size = Pt(11)
-    
     for line in text_content.split('\n'):
         line = line.strip()
-        if line:
-            doc.add_paragraph(line)
-            
+        if line: doc.add_paragraph(line)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- 5. LOGICA AI (GEMINI 3.0) ---
+# --- 5. LOGICA AI ---
 def generate_content(cv_text, job_text, lang_name):
     try:
-        # Modello Specifico Richiesto
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
-        
         prompt = f"""
-        Role: Professional HR Expert & Translator.
-        Task: Create a CV and Cover Letter based on the inputs.
-        Target Language: {lang_name} (Strictly).
-        
-        INPUTS:
-        1. Original CV Text: {cv_text[:30000]}
-        2. Job Description: {job_text[:10000]}
-        
+        Role: HR Expert. Task: Create CV and Cover Letter.
+        Language: {lang_name}.
+        INPUTS: CV: {cv_text[:30000]} | Job: {job_text[:10000]}
         INSTRUCTIONS:
-        1. Extract Name, Address, Phone, Email from CV for the header.
-        2. Rewrite the CV body in {lang_name}. Make it professional, action-oriented, and optimized for the Job Description. DO NOT include the header info in the body text (it goes in the banner). Use UPPERCASE for section headers.
-        3. Write a tailored Cover Letter in {lang_name}.
-        
-        OUTPUT FORMAT (Strict JSON):
+        1. Extract Name, Address, Phone, Email.
+        2. Rewrite CV body in {lang_name} (UPPERCASE headers). NO header info in body.
+        3. Write Cover Letter in {lang_name}.
+        OUTPUT JSON:
         {{
-            "name": "First Last",
-            "address": "Full Address",
-            "phone": "+123...",
-            "email": "example@mail.com",
-            "cv_content": "Full rewritten CV body text...",
-            "cover_letter": "Full cover letter text..."
+            "name": "...", "address": "...", "phone": "...", "email": "...",
+            "cv_content": "...", "cover_letter": "..."
         }}
         """
-        
         response = model.generate_content(prompt)
-        # Pulizia JSON
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
-        
     except Exception as e:
-        st.error(f"AI Error: {e}")
         return None
 
-# --- 6. INTERFACCIA UTENTE ---
-
-# 6a. Configurazione Chiave
+# --- 6. INTERFACCIA ---
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error(TRANSLATIONS['en_us']['missing_key'])
+    st.error("API Key missing.")
     st.stop()
 
-# 6b. Sidebar
 with st.sidebar:
-    # Selezione Lingua
     lang_keys = list(TRANSLATIONS.keys())
-    # Mappa nomi per selectbox
     lang_names = [TRANSLATIONS[k]['name'] for k in lang_keys]
     
-    # Trova indice corrente
-    current_index = 0
-    try:
-        current_index = lang_keys.index(st.session_state['lang_code'])
-    except: pass
+    curr_idx = 0
+    if st.session_state['lang_code'] in lang_keys:
+        curr_idx = lang_keys.index(st.session_state['lang_code'])
+        
+    sel_name = st.selectbox("Language", lang_names, index=curr_idx)
     
-    selected_lang_name = st.selectbox("Language / Lingua", lang_names, index=current_index)
-    
-    # Aggiorna session state in base alla selezione
     for k, v in TRANSLATIONS.items():
-        if v['name'] == selected_lang_name:
+        if v['name'] == sel_name:
             st.session_state['lang_code'] = k
             break
-            
-    t = TRANSLATIONS[st.session_state['lang_code']]
     
+    t = TRANSLATIONS[st.session_state['lang_code']]
     st.title(t['sidebar_title'])
     
-    # Foto
     st.markdown(f"**{t['photo_label']}**")
-    uploaded_photo = st.file_uploader("Photo", type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
+    up_photo = st.file_uploader("Photo", type=['jpg','png','jpeg'], label_visibility="collapsed")
     border = st.slider(t['border_label'], 0, 50, 5)
     
-    if uploaded_photo:
-        # Processa subito per anteprima e salvataggio
-        processed_bytes = process_image(uploaded_photo, border)
-        if processed_bytes:
-            st.session_state['processed_photo_bytes'] = processed_bytes
-            st.image(processed_bytes, caption=t['preview_label'], width=150)
+    if up_photo:
+        proc_bytes = process_image(up_photo, border)
+        if proc_bytes:
+            st.session_state['processed_photo_bytes'] = proc_bytes
+            st.image(proc_bytes, caption=t['preview_label'], width=150)
 
-# 6c. Main Page
 st.title(t['main_title'])
-
-col1, col2 = st.columns(2)
-
-with col1:
+c1, c2 = st.columns(2)
+with c1:
     st.subheader(t['step1_title'])
-    cv_file = st.file_uploader("CV PDF", type="pdf", label_visibility="collapsed")
-
-with col2:
+    cv_file = st.file_uploader("CV", type="pdf", label_visibility="collapsed")
+with c2:
     st.subheader(t['step2_title'])
-    # Text area con chiave per persistenza
     job_desc = st.text_area("Job", height=200, placeholder=t['job_placeholder'], label_visibility="collapsed")
 
 st.markdown("---")
@@ -326,12 +284,8 @@ st.markdown("---")
 if st.button(t['btn_label'], type="primary", use_container_width=True):
     if cv_file and job_desc:
         with st.spinner(t['spinner_msg']):
-            # 1. Estrai testo
-            cv_text = get_text_from_pdf(cv_file)
-            
-            # 2. Chiama AI
-            data = generate_content(cv_text, job_desc, t['name'])
-            
+            cv_txt = get_text_from_pdf(cv_file)
+            data = generate_content(cv_txt, job_desc, t['name'])
             if data:
                 st.session_state['generated_data'] = data
                 st.success(t['success'])
@@ -340,32 +294,16 @@ if st.button(t['btn_label'], type="primary", use_container_width=True):
     else:
         st.warning(t['missing_inputs'])
 
-# 6d. Risultati
 if st.session_state['generated_data']:
     data = st.session_state['generated_data']
-    
     tab1, tab2 = st.tabs([t['tab_cv'], t['tab_letter']])
     
     with tab1:
-        # Genera DOCX
         cv_docx = create_cv_docx(data, st.session_state['processed_photo_bytes'])
-        
-        st.download_button(
-            label=f"📥 {t['down_cv']}",
-            data=cv_docx,
-            file_name="CV_Optimized.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-        st.text_area("Preview", value=data.get('cv_content', ''), height=500)
+        st.download_button(label=f"📥 {t['down_cv']}", data=cv_docx, file_name="CV.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.text_area("Preview", value=data.get('cv_content',''), height=500)
         
     with tab2:
-        # Genera Letter DOCX
-        letter_docx = create_letter_docx(data.get('cover_letter', ''))
-        
-        st.download_button(
-            label=f"📥 {t['down_let']}",
-            data=letter_docx,
-            file_name="Cover_Letter.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-        st.text_area("Preview", value=data.get('cover_letter', ''), height=500)
+        let_docx = create_letter_docx(data.get('cover_letter',''))
+        st.download_button(label=f"📥 {t['down_let']}", data=let_docx, file_name="Letter.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.text_area("Preview", value=data.get('cover_letter',''), height=500)
