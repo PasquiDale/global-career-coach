@@ -90,7 +90,7 @@ def clean_text(text):
     if not text: return ""
     return text.replace("**", "").replace("##", "").strip()
 
-# --- FUNZIONE CREAZIONE CV (CONGELATA E PERFETTA) ---
+# --- FUNZIONE CREAZIONE CV (CONGELATA) ---
 def create_cv_docx(data, photo_stream, lang_code):
     doc = Document()
     section = doc.sections[0]
@@ -193,14 +193,13 @@ def create_cv_docx(data, photo_stream, lang_code):
     buffer.seek(0)
     return buffer
 
-# --- FUNZIONE CREAZIONE LETTERA (BUSINESS LAYOUT AGGIORNATO) ---
+# --- FUNZIONE CREAZIONE LETTERA (CONGELATA) ---
 def create_letter_docx(letter_data, personal_info):
     doc = Document()
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(11)
     
-    # 1. MITTENTE (Alto SX)
     sender_block = f"{personal_info.get('first_name', '')} {personal_info.get('last_name', '')}\n"
     sender_block += f"{personal_info.get('address', '')}\n"
     sender_block += f"{personal_info.get('phone', '')}\n{personal_info.get('email', '')}"
@@ -208,38 +207,32 @@ def create_letter_docx(letter_data, personal_info):
     p_sender = doc.add_paragraph(clean_text(sender_block))
     p_sender.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_sender.runs[0].font.size = Pt(10)
-    doc.add_paragraph() # Spazio
+    doc.add_paragraph() 
     
-    # 2. DATA (Alto SX, come richiesto)
     date_str = letter_data.get('date_line', datetime.datetime.now().strftime("%d.%m.%Y"))
     p_date = doc.add_paragraph(clean_text(date_str))
     p_date.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    doc.add_paragraph() # Spazio
+    doc.add_paragraph() 
     
-    # 3. DESTINATARIO
     recipient = clean_text(letter_data.get('recipient_block', 'Hiring Manager'))
     p_rec = doc.add_paragraph(recipient)
     p_rec.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    doc.add_paragraph() # Spazio
+    doc.add_paragraph() 
     
-    # 4. OGGETTO (Grassetto 14pt)
     subject = clean_text(letter_data.get('subject_line', 'Application'))
     p_sub = doc.add_paragraph()
     run_sub = p_sub.add_run(subject)
     run_sub.bold = True
     run_sub.font.size = Pt(14)
-    doc.add_paragraph() # Spazio
+    doc.add_paragraph() 
     
-    # 5. CORPO
     body = clean_text(letter_data.get('body_content', ''))
     doc.add_paragraph(body)
-    doc.add_paragraph() # Spazio
+    doc.add_paragraph() 
     
-    # 6. CHIUSURA E FIRMA (Con 4 righe vuote)
     closing = clean_text(letter_data.get('closing', 'Freundliche Grüsse'))
     doc.add_paragraph(closing)
     
-    # 4 righe vuote per la firma a mano
     for _ in range(4):
         doc.add_paragraph()
         
@@ -253,8 +246,9 @@ def create_letter_docx(letter_data, personal_info):
 # --- 6. MAIN LOOP ---
 
 def main():
+    # Sidebar
     current_code = st.session_state.lang_code
-    current_name = list(LANG_DISPLAY.keys())[0]
+    current_name = list(LANG_DISPLAY.keys())[0] 
     for name, code in LANG_DISPLAY.items():
         if code == current_code:
             current_name = name
@@ -305,11 +299,15 @@ def main():
         else:
             with st.spinner(t['spinner_msg']):
                 try:
+                    # 1. Estrazione Testo
                     reader = pypdf.PdfReader(cv_file)
                     text = ""
                     for p in reader.pages: text += p.extract_text() + "\n"
                     
-                    model = genai.GenerativeModel("models/gemini-3-pro-preview")
+                    # 2. Chiama AI con GOOGLE SEARCH
+                    # Configurazione strumento di ricerca
+                    tools = [{"google_search": {}}]
+                    model = genai.GenerativeModel("models/gemini-3-pro-preview", tools=tools)
                     
                     prompt = f"""
                     Role: Professional HR Expert.
@@ -318,7 +316,7 @@ def main():
                     Task: Analyze CV and Job Description.
                     
                     INSTRUCTIONS FOR LETTER:
-                    1. Extract Company Name and Address from Job Description. If address is incomplete/missing, use your internal knowledge to find the HQ address of that company in Switzerland/Germany (e.g. for UBS, ROCKEN, Swisscom).
+                    1. **USE GOOGLE SEARCH** to find the official, complete physical address of the hiring company mentioned in the job offer. Do not guess. If search fails, use data from text.
                     2. If German language: Ensure body text starts with CAPITAL letter even after comma (e.g. "Sehr geehrte Damen und Herren,\n\nIch bewerbe mich...").
                     
                     OUTPUT JSON STRICTLY:
@@ -345,7 +343,15 @@ def main():
                     """
                     
                     response = model.generate_content(prompt)
-                    json_str = response.text.replace("```json", "").replace("```", "").strip()
+                    
+                    # Pulizia risposta per evitare errori JSON se il modello restituisce testo extra
+                    json_str = response.text
+                    # Cerca il primo { e l'ultimo }
+                    start_idx = json_str.find('{')
+                    end_idx = json_str.rfind('}') + 1
+                    if start_idx != -1 and end_idx != -1:
+                        json_str = json_str[start_idx:end_idx]
+                    
                     data = json.loads(json_str)
                     
                     st.session_state.generated_data = data
