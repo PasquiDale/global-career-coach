@@ -10,8 +10,9 @@ from PIL import Image, ImageOps
 import io
 import json
 import pypdf
+import re
 
-# 1. CONFIGURAZIONE PAGINA (PRIMA ISTRUZIONE ASSOLUTA)
+# 1. CONFIGURAZIONE PAGINA
 st.set_page_config(
     page_title="Global Career Coach",
     layout="wide",
@@ -26,7 +27,19 @@ if 'generated_data' not in st.session_state:
 if 'processed_photo' not in st.session_state:
     st.session_state['processed_photo'] = None
 
-# 3. DIZIONARIO TRADUZIONI COMPLETO
+# 3. COSTANTI E DIZIONARI
+# Mappa: Nome Visuale -> Codice Interno
+LANG_NAMES = {
+    'Italiano': 'it',
+    'English (US)': 'en_us',
+    'English (UK)': 'en_uk',
+    'Deutsch (Deutschland)': 'de_de',
+    'Deutsch (Schweiz)': 'de_ch',
+    'Español': 'es',
+    'Português': 'pt'
+}
+
+# Dizionario Traduzioni Completo
 TRANSLATIONS = {
     'it': {'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Generatore CV Professionale', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'profile_header': 'PROFILO PERSONALE'},
     'en_us': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Professional CV Generator', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_header': 'PROFESSIONAL SUMMARY'},
@@ -48,6 +61,12 @@ def set_cell_background(cell, color_hex):
     shading_elm.set(qn('w:fill'), color_hex)
     cell_properties.append(shading_elm)
 
+def clean_md(text):
+    """Rimuove asterischi markdown dal testo per il file Word."""
+    if text:
+        return text.replace("**", "").replace("*", "")
+    return text
+
 def process_image(image_file, border_width):
     """Aggiunge bordo bianco all'immagine."""
     if image_file:
@@ -62,7 +81,7 @@ def process_image(image_file, border_width):
     return None
 
 def create_docx(json_data, photo_bytes, lang_code):
-    """Crea il file Word con layout specifico: Header Blu, Foto a Sx centrata, Profilo."""
+    """Crea il file Word con layout perfezionato."""
     doc = Document()
     
     # Margini pagina
@@ -72,19 +91,18 @@ def create_docx(json_data, photo_bytes, lang_code):
     section.left_margin = Inches(0.7)
     section.right_margin = Inches(0.7)
 
-    # 1. CREAZIONE BANNER BLU (Tabella 1 riga, 2 colonne)
+    # --- 1. BANNER BLU (Tabella 1x2) ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False 
     
-    # Dimensioni Colonne
-    # La larghezza totale è circa 7.1 pollici.
-    # Colonna Foto molto stretta per eliminare spazio a sinistra
-    table.columns[0].width = Inches(1.2)
+    # SETUP DIMENSIONI CRITICHE
+    # Colonna Foto STRETTA per eliminare spazio a sinistra
+    table.columns[0].width = Inches(1.2)  
     table.columns[1].width = Inches(6.1)
     
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
-    row.height = Inches(2.0) # Altezza fissa
+    row.height = Inches(2.0) # Altezza banner fissa
     
     cell_photo = row.cells[0]
     cell_text = row.cells[1]
@@ -93,50 +111,54 @@ def create_docx(json_data, photo_bytes, lang_code):
     set_cell_background(cell_photo, "1F4E79")
     set_cell_background(cell_text, "1F4E79")
     
-    # CRUCIALE: Allineamento Verticale Cella
+    # ALLINEAMENTO VERTICALE CENTRALE (Fondamentale)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
-    # 2. INSERIMENTO FOTO
+    # --- INSERIMENTO FOTO ---
     if photo_bytes:
         paragraph = cell_photo.paragraphs[0]
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT # Foto tutto a sinistra
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
         
-        # Reset margini paragrafo per centratura perfetta nella cella
+        # Reset margini per centratura perfetta dentro la cella
         paragraph.paragraph_format.space_before = Pt(0)
         paragraph.paragraph_format.space_after = Pt(0)
         paragraph.paragraph_format.line_spacing = 1.0
         
         run = paragraph.add_run()
-        run.add_picture(photo_bytes, width=Inches(1.2)) # Larghezza uguale alla colonna
+        run.add_picture(photo_bytes, width=Inches(1.2)) # Larghezza piena colonna
     
-    # 3. INSERIMENTO TESTO HEADER (Nome e Contatti)
+    # --- INSERIMENTO TESTO HEADER ---
     paragraph = cell_text.paragraphs[0]
     paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    paragraph.paragraph_format.left_indent = Pt(10) # Leggero rientro dal bordo foto
+    paragraph.paragraph_format.left_indent = Pt(10)
     
-    # Nome
-    name = json_data.get('personal_info', {}).get('name', '')
-    run_name = paragraph.add_run(name + "\n")
-    run_name.font.name = 'Arial'
-    run_name.font.size = Pt(24)
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
-    run_name.bold = True
+    # FIX: Rimuove spazio sopra il nome per allinearlo visivamente in alto con la foto
+    paragraph.paragraph_format.space_before = Pt(0)
     
-    # Contatti
+    # Dati dal JSON
+    name = clean_md(json_data.get('personal_info', {}).get('name', ''))
     contact_info = json_data.get('personal_info', {}).get('contact_details', [])
+    
+    if name:
+        run_name = paragraph.add_run(name + "\n")
+        run_name.font.name = 'Arial'
+        run_name.font.size = Pt(24)
+        run_name.font.color.rgb = RGBColor(255, 255, 255)
+        run_name.bold = True
+        
     for contact in contact_info:
-        run_contact = paragraph.add_run(contact + "\n")
+        clean_contact = clean_md(contact)
+        run_contact = paragraph.add_run(clean_contact + "\n")
         run_contact.font.name = 'Arial'
         run_contact.font.size = Pt(11)
         run_contact.font.color.rgb = RGBColor(255, 255, 255)
 
-    doc.add_paragraph("") # Spazio
+    doc.add_paragraph("") # Spazio dopo banner
 
-    # 4. SEZIONE PROFILO PERSONALE (Subito dopo header)
-    profile_text = json_data.get('profile_summary', '')
+    # --- 2. PROFILO PERSONALE ---
+    profile_text = clean_md(json_data.get('profile_summary', ''))
     if profile_text:
-        # Titolo Profilo
         p_title = doc.add_paragraph()
         run_title = p_title.add_run(TRANSLATIONS[lang_code]['profile_header'])
         run_title.font.name = 'Arial'
@@ -144,7 +166,7 @@ def create_docx(json_data, photo_bytes, lang_code):
         run_title.font.bold = True
         run_title.font.color.rgb = RGBColor(31, 78, 121)
         
-        # Linea sotto titolo
+        # Linea
         p_element = p_title._p
         pPr = p_element.get_or_add_pPr()
         pBdr = OxmlElement('w:pBdr')
@@ -156,12 +178,10 @@ def create_docx(json_data, photo_bytes, lang_code):
         pBdr.append(bottom)
         pPr.append(pBdr)
 
-        # Testo Profilo
         p_body = doc.add_paragraph(profile_text)
         p_body.paragraph_format.space_after = Pt(12)
 
-    # 5. RESTO DEL CV (Esperienza, Istruzione, etc.)
-    # Il resto arriva come testo grezzo formattato dall'AI, lo parsiamo
+    # --- 3. CORPO DEL CV ---
     body_text = json_data.get('cv_body', '')
     
     for line in body_text.split('\n'):
@@ -169,18 +189,19 @@ def create_docx(json_data, photo_bytes, lang_code):
         if not line:
             continue
             
-        # Rilevamento Titoli Sezioni (es. ESPERIENZA)
-        if len(line) < 50 and line.isupper() and any(c.isalpha() for c in line):
+        clean_line = clean_md(line)
+            
+        # Titoli Sezioni (Uppercase)
+        if len(clean_line) < 50 and clean_line.isupper() and any(c.isalpha() for c in clean_line):
             p = doc.add_paragraph()
             p.space_before = Pt(12)
             p.space_after = Pt(3)
-            run = p.add_run(line)
+            run = p.add_run(clean_line)
             run.font.name = 'Arial'
             run.font.size = Pt(12)
             run.font.bold = True
             run.font.color.rgb = RGBColor(31, 78, 121)
             
-            # Linea sotto
             p_element = p._p
             pPr = p_element.get_or_add_pPr()
             pBdr = OxmlElement('w:pBdr')
@@ -192,11 +213,11 @@ def create_docx(json_data, photo_bytes, lang_code):
             pBdr.append(bottom)
             pPr.append(pBdr)
             
-        elif line.startswith("-") or line.startswith("•"):
-            p = doc.add_paragraph(line.lstrip("-• "), style='List Bullet')
+        elif clean_line.startswith("-") or clean_line.startswith("•"):
+            p = doc.add_paragraph(clean_line.lstrip("-• "), style='List Bullet')
             p.paragraph_format.space_after = Pt(2)
         else:
-            p = doc.add_paragraph(line)
+            p = doc.add_paragraph(clean_line)
             p.paragraph_format.space_after = Pt(2)
             run = p.runs[0]
             run.font.name = 'Calibri'
@@ -210,7 +231,8 @@ def create_docx(json_data, photo_bytes, lang_code):
 def create_letter_docx(text):
     """Crea documento Word per la lettera."""
     doc = Document()
-    for line in text.split('\n'):
+    clean_text = clean_md(text)
+    for line in clean_text.split('\n'):
         if line.strip():
             doc.add_paragraph(line.strip())
     
@@ -219,13 +241,14 @@ def create_letter_docx(text):
     docx_file.seek(0)
     return docx_file
 
-# 5. GENERAZIONE CONTENUTI (GEMINI)
+# 5. GENERAZIONE CONTENUTI
 def generate_content(pdf_text, job_text, lang_key):
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
+        # Mappa lang_key a nome lingua
         target_lang = {
             'it': 'Italian', 'en_us': 'English (US)', 'de_ch': 'German (Swiss)', 
             'de_de': 'German (Germany)', 'es': 'Spanish', 'pt': 'Portuguese', 'en_uk': 'English (UK)'
@@ -233,7 +256,7 @@ def generate_content(pdf_text, job_text, lang_key):
 
         prompt = f"""
         You are a professional HR Resume Writer. 
-        Output STRICTLY JSON. No Markdown. No Intro.
+        Output STRICTLY JSON. No Markdown block (```). No Intro.
         Target Language: {target_lang}.
         
         INPUT:
@@ -265,21 +288,27 @@ def generate_content(pdf_text, job_text, lang_key):
         st.error(f"Error: {str(e)}")
         return None
 
-# 6. MAIN LOOP DELL'APPLICAZIONE
+# 6. MAIN LOOP
 def main():
-    # SIDEBAR
     with st.sidebar:
-        t = TRANSLATIONS[st.session_state['lang_code']]
+        current_lang_code = st.session_state['lang_code']
+        t = TRANSLATIONS[current_lang_code]
         st.title(t['sidebar_title'])
         
-        lang_options = list(TRANSLATIONS.keys())
-        selected_lang = st.selectbox(
+        # Selettore Lingua con Nomi Completi
+        # Trova il nome visuale corrente basato sul codice salvato
+        current_visual_name = list(LANG_NAMES.keys())[list(LANG_NAMES.values()).index(current_lang_code)]
+        
+        selected_visual_name = st.selectbox(
             t['lang_label'], 
-            options=lang_options, 
-            index=lang_options.index(st.session_state['lang_code'])
+            options=list(LANG_NAMES.keys()), 
+            index=list(LANG_NAMES.keys()).index(current_visual_name)
         )
-        if selected_lang != st.session_state['lang_code']:
-            st.session_state['lang_code'] = selected_lang
+        
+        # Aggiorna se cambiato
+        new_lang_code = LANG_NAMES[selected_visual_name]
+        if new_lang_code != current_lang_code:
+            st.session_state['lang_code'] = new_lang_code
             st.rerun()
             
         st.divider()
@@ -329,7 +358,6 @@ def main():
         tab1, tab2 = st.tabs([t['tab_cv'], t['tab_letter']])
         
         with tab1:
-            # Mostra anteprima del profilo + corpo
             preview_text = f"**{t['profile_header']}**\n\n{data.get('profile_summary', '')}\n\n{data.get('cv_body', '')}"
             st.text_area("", value=preview_text, height=500)
             
