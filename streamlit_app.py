@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
+from docx.shared import Pt, Inches, RGBColor, Cm
 from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
@@ -11,7 +11,7 @@ import json
 import pypdf
 from PIL import Image, ImageOps
 
-# --- 1. CONFIGURAZIONE PAGINA ---
+# --- 1. CONFIGURAZIONE PAGINA (TASSATIVAMENTE PRIMA RIGA) ---
 st.set_page_config(
     page_title="Global Career Coach",
     page_icon="🚀",
@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. SESSION STATE ---
+# --- 2. INIZIALIZZAZIONE SESSION STATE ---
 if 'lang_code' not in st.session_state:
     st.session_state['lang_code'] = 'it'
 if 'generated_data' not in st.session_state:
@@ -27,79 +27,28 @@ if 'generated_data' not in st.session_state:
 if 'processed_photo_bytes' not in st.session_state:
     st.session_state['processed_photo_bytes'] = None
 
-# --- 3. DIZIONARIO TRADUZIONI (NO RIFERIMENTI AI/GEMINI) ---
+# --- 3. DIZIONARIO TRADUZIONI COMPLETO ---
 TRANSLATIONS = {
     'it': {
-        'name': 'Italiano', 'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 
-        'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima Foto', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Carica il tuo CV (PDF)', 
-        'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 
-        'job_placeholder': 'Incolla qui il testo dell\'offerta di lavoro...', 'btn_label': 'Genera Documenti', 
-        'spinner_msg': 'Elaborazione e scrittura professionale in corso...', # GENERICO
-        'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 
-        'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 
-        'success': 'Documenti pronti!', 'error': 'Si è verificato un errore', 
-        'missing_key': 'Licenza non attiva.', 'missing_inputs': 'Caricare PDF e Annuncio.'
+        'name': 'Italiano', 'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima Foto', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Carica il tuo CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta di lavoro...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Analisi e scrittura in corso con Gemini 3 Pro...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'missing_key': 'Chiave API mancante nei Secrets.', 'missing_inputs': 'Per favore carica sia il PDF che il testo dell\'annuncio.'
     },
     'en_us': {
-        'name': 'English (US)', 'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 
-        'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Photo Preview', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Upload CV (PDF)', 
-        'upload_help': 'Drop file here', 'step2_title': '2. Job Description', 
-        'job_placeholder': 'Paste job offer text here...', 'btn_label': 'Generate Documents', 
-        'spinner_msg': 'Processing and writing documents...', # GENERICO
-        'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 
-        'down_cv': 'Download CV', 'down_let': 'Download Letter', 
-        'success': 'Ready!', 'error': 'Error', 
-        'missing_key': 'License key missing.', 'missing_inputs': 'Please upload inputs.'
+        'name': 'English (US)', 'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Photo Preview', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer text here...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Analyzing with Gemini 3 Pro...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'API Key missing in Secrets.', 'missing_inputs': 'Please upload PDF and paste Job Description.'
+    },
+    'en_uk': {
+        'name': 'English (UK)', 'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Photo Preview', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer text here...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Analysing with Gemini 3 Pro...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'API Key missing in Secrets.', 'missing_inputs': 'Please upload PDF and paste Job Description.'
     },
     'de_ch': {
-        'name': 'Deutsch (CH)', 'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 
-        'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Lebenslauf hochladen (PDF)', 
-        'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenbeschrieb', 
-        'job_placeholder': 'Stellenanzeige hier einfügen...', 'btn_label': 'Dokumente erstellen', 
-        'spinner_msg': 'Verarbeitung und Erstellung laufen...', # GENERICO
-        'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 
-        'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 
-        'success': 'Fertig!', 'error': 'Fehler', 
-        'missing_key': 'Lizenzschlüssel fehlt.', 'missing_inputs': 'Bitte Eingaben prüfen.'
+        'name': 'Deutsch (CH)', 'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenbeschrieb', 'job_placeholder': 'Stellenanzeige hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Analyse läuft mit Gemini 3 Pro...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'missing_key': 'API-Schlüssel fehlt.', 'missing_inputs': 'Bitte PDF hochladen und Stellenanzeige einfügen.'
     },
     'de_de': {
-        'name': 'Deutsch (DE)', 'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 
-        'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Lebenslauf hochladen (PDF)', 
-        'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 
-        'job_placeholder': 'Stellenanzeige hier einfügen...', 'btn_label': 'Dokumente erstellen', 
-        'spinner_msg': 'Verarbeitung und Erstellung laufen...', # GENERICO
-        'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 
-        'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 
-        'success': 'Fertig!', 'error': 'Fehler', 
-        'missing_key': 'Lizenzschlüssel fehlt.', 'missing_inputs': 'Bitte Eingaben prüfen.'
+        'name': 'Deutsch (DE)', 'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Analyse läuft mit Gemini 3 Pro...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'missing_key': 'API-Schlüssel fehlt.', 'missing_inputs': 'Bitte PDF hochladen und Stellenanzeige einfügen.'
     },
     'es': {
-        'name': 'Español', 'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 
-        'photo_label': 'Foto Perfil', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Subir CV (PDF)', 
-        'upload_help': 'Arrastra archivo aquí', 'step2_title': '2. Oferta de Trabajo', 
-        'job_placeholder': 'Pega la oferta aquí...', 'btn_label': 'Generar Documentos', 
-        'spinner_msg': 'Procesando documentos...', # GENERICO
-        'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 
-        'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 
-        'success': '¡Listo!', 'error': 'Error', 
-        'missing_key': 'Falta licencia.', 'missing_inputs': 'Faltan datos.'
+        'name': 'Español', 'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto Perfil', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Subir CV (PDF)', 'upload_help': 'Arrastra archivo aquí', 'step2_title': '2. Oferta de Trabajo', 'job_placeholder': 'Pega la oferta aquí...', 'btn_label': 'Generar Documentos', 'spinner_msg': 'Analizando con Gemini 3 Pro...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': '¡Hecho!', 'error': 'Error', 'missing_key': 'Falta clave API.', 'missing_inputs': 'Por favor sube PDF y pega la oferta.'
     },
     'pt': {
-        'name': 'Português', 'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 
-        'photo_label': 'Foto Perfil', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 
-        'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Carregar CV (PDF)', 
-        'upload_help': 'Arraste arquivo aqui', 'step2_title': '2. Anúncio de Vaga', 
-        'job_placeholder': 'Cole o anúncio aqui...', 'btn_label': 'Gerar Documentos', 
-        'spinner_msg': 'Processando documentos...', # GENERICO
-        'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 
-        'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 
-        'success': 'Pronto!', 'error': 'Erro', 
-        'missing_key': 'Chave ausente.', 'missing_inputs': 'Dados ausentes.'
+        'name': 'Português', 'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto Perfil', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🚀', 'step1_title': '1. Carregar CV (PDF)', 'upload_help': 'Arraste arquivo aqui', 'step2_title': '2. Anúncio de Vaga', 'job_placeholder': 'Cole o anúncio aqui...', 'btn_label': 'Gerar Documentos', 'spinner_msg': 'Analisando com Gemini 3 Pro...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto!', 'error': 'Erro', 'missing_key': 'Chave API ausente.', 'missing_inputs': 'Por favor envie PDF e cole o anúncio.'
     }
 }
 
@@ -116,6 +65,7 @@ def get_text_from_pdf(pdf_file):
         return ""
 
 def process_image(uploaded_file, border_size):
+    """Aggiunge bordo bianco e prepara per Word"""
     try:
         img = Image.open(uploaded_file)
         if img.mode != 'RGB':
@@ -131,6 +81,7 @@ def process_image(uploaded_file, border_size):
         return None
 
 def set_cell_background(cell, color_hex):
+    """Colore sfondo cella Word (Hex senza #)"""
     tcPr = cell._tc.get_or_add_tcPr()
     shd = OxmlElement('w:shd')
     shd.set(qn('w:val'), 'clear')
@@ -139,24 +90,28 @@ def set_cell_background(cell, color_hex):
     tcPr.append(shd)
 
 def create_cv_docx(data_json, photo_bytes):
+    """Crea il DOCX con FOTO A SINISTRA (Left Alignment)"""
     doc = Document()
     
+    # Margini stretti
     section = doc.sections[0]
     section.top_margin = Cm(1.27)
     section.bottom_margin = Cm(1.27)
     section.left_margin = Cm(1.27)
     section.right_margin = Cm(1.27)
 
-    # --- BANNER ---
+    # --- BANNER SUPERIORE (Tabella 1x2) ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    col0_width = Inches(1.3)
-    col1_width = Inches(6.2)
+    # DEFINIZIONE COLONNE
+    col0_width = Inches(1.3)  # Colonna foto (Stretta per eliminare spazi)
+    col1_width = Inches(6.2)  # Colonna testo
     
     table.columns[0].width = col0_width
     table.columns[1].width = col1_width
     
+    # ALTEZZA FISSA RIGA
     row = table.rows[0]
     row.height = Inches(2.0)
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
@@ -164,37 +119,37 @@ def create_cv_docx(data_json, photo_bytes):
     cell_img = row.cells[0]
     cell_txt = row.cells[1]
     
+    # Sfondo Blu Scuro
     bg_color = "1F4E79"
     set_cell_background(cell_img, bg_color)
     set_cell_background(cell_txt, bg_color)
     
-    # --- FOTO (Centratura Verticale Fix) ---
+    # --- INSERIMENTO FOTO (ALLINEAMENTO SINISTRA) ---
+    # Questo è il fix richiesto per eliminare lo spazio vuoto a sinistra
     cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     p_img = cell_img.paragraphs[0]
-    p_img.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    
-    # Rimuoviamo spaziatura paragrafo per centratura matematica
+    p_img.alignment = WD_ALIGN_PARAGRAPH.LEFT # <--- FOTO A SINISTRA
+    p_img.paragraph_format.left_indent = Pt(0)
     p_img.paragraph_format.space_before = Pt(0)
-    p_img.paragraph_format.space_after = Pt(0)
     
     if photo_bytes:
         run_img = p_img.add_run()
         run_img.add_picture(photo_bytes, width=Inches(1.25))
     
-    # --- TESTO ---
+    # --- INSERIMENTO TESTO BANNER ---
     cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     p_txt = cell_txt.paragraphs[0]
     p_txt.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_txt.paragraph_format.left_indent = Pt(10)
-    p_txt.paragraph_format.space_before = Pt(0) # Fix allineamento
-    p_txt.paragraph_format.space_after = Pt(0)  # Fix allineamento
     
-    name_run = p_txt.add_run(f"{data_json.get('name', '').upper()}\n")
+    # Nome
+    name_run = p_txt.add_run(f"{data_json.get('name', 'Name Surname').upper()}\n")
     name_run.font.name = 'Arial'
     name_run.font.size = Pt(24)
     name_run.font.color.rgb = RGBColor(255, 255, 255)
     name_run.bold = True
     
+    # Contatti
     contact_info = f"{data_json.get('address', '')}\n{data_json.get('phone', '')} • {data_json.get('email', '')}"
     contact_run = p_txt.add_run(contact_info)
     contact_run.font.name = 'Arial'
@@ -203,7 +158,7 @@ def create_cv_docx(data_json, photo_bytes):
 
     doc.add_paragraph().space_after = Pt(12)
 
-    # --- BODY ---
+    # --- CORPO DEL CV ---
     cv_body = data_json.get('cv_content', '')
     for line in cv_body.split('\n'):
         line = line.strip()
@@ -260,8 +215,8 @@ def generate_content(cv_text, job_text, lang_name):
     try:
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         prompt = f"""
-        Role: HR Expert.
-        Target Language: {lang_name}.
+        Role: HR Expert. Task: Create CV and Cover Letter.
+        Language: {lang_name}.
         INPUTS: CV: {cv_text[:30000]} | Job: {job_text[:10000]}
         INSTRUCTIONS:
         1. Extract Name, Address, Phone, Email.
@@ -284,7 +239,7 @@ try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
 except KeyError:
-    st.error("License Key Error.")
+    st.error("API Key missing.")
     st.stop()
 
 with st.sidebar:
