@@ -10,6 +10,7 @@ import io
 from PIL import Image, ImageOps
 import pypdf
 import json
+import datetime
 
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
@@ -21,12 +22,8 @@ st.set_page_config(
 # --- 2. CSS INJECTION (MANINA MOUSE) ---
 st.markdown("""
     <style>
-    div[data-baseweb="select"] > div {
-        cursor: pointer !important;
-    }
-    button {
-        cursor: pointer !important;
-    }
+    div[data-baseweb="select"] > div { cursor: pointer !important; }
+    button { cursor: pointer !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,19 +37,12 @@ if 'processed_photo' not in st.session_state:
 
 # --- 4. COSTANTI E DIZIONARI ---
 
-# Mappa per visualizzazione lingua -> codice interno
 LANG_DISPLAY = {
-    "Italiano": "it",
-    "English (US)": "en_us",
-    "English (UK)": "en_uk",
-    "Deutsch (Deutschland)": "de_de",
-    "Deutsch (Schweiz)": "de_ch",
-    "Français": "fr",
-    "Español": "es",
-    "Português": "pt"
+    "Italiano": "it", "English (US)": "en_us", "English (UK)": "en_uk",
+    "Deutsch (Deutschland)": "de_de", "Deutsch (Schweiz)": "de_ch",
+    "Français": "fr", "Español": "es", "Português": "pt"
 }
 
-# Traduzioni Interfaccia (CORRETTA VOCE DE_CH)
 TRANSLATIONS = {
     'it': {'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'missing_key': 'Chiave API mancante'},
     'en_us': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'Missing API Key'},
@@ -64,7 +54,6 @@ TRANSLATIONS = {
     'en_uk': {'sidebar_title': 'Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'Missing API Key'}
 }
 
-# Titoli Sezioni forzati per lingua
 SECTION_TITLES = {
     'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE E FORMAZIONE', 'skills': 'COMPETENZE', 'personal_info': 'DATI PERSONALI', 'profile_summary': 'PROFILO PERSONALE'},
     'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE & FÄHIGKEITEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
@@ -79,25 +68,24 @@ SECTION_TITLES = {
 # --- 5. FUNZIONI HELPER ---
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo BLU della cella tramite XML."""
+    """Sfondo Blu per Header CV."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
 def add_bottom_border(paragraph):
-    """Aggiunge una linea orizzontale BLU sotto il titolo."""
+    """Linea Blu sotto i titoli CV."""
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
     bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')      # Spessore linea
-    bottom.set(qn('w:space'), '1')   # Spaziatura
-    bottom.set(qn('w:color'), '20547D') # Colore Blu Scuro
+    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '20547D')
     pbdr.append(bottom)
     pPr.append(pbdr)
 
 def process_image(image_file, border_width):
-    """Aggiunge bordo bianco alla foto."""
     img = Image.open(image_file)
     if img.mode != 'RGB':
         img = img.convert('RGB')
@@ -107,27 +95,25 @@ def clean_text(text):
     if not text: return ""
     return text.replace("**", "").replace("##", "").strip()
 
-def create_docx(data, photo_stream, lang_code):
-    """Crea il file Word con layout banner preciso e titoli tradotti."""
+# --- 6. FUNZIONE CREATE CV (LAYOUT BANNER BLU) ---
+def create_cv_docx(data, photo_stream, lang_code):
     doc = Document()
     
-    # 1. Impostazione Margini
+    # Margini
     section = doc.sections[0]
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
     section.top_margin = Inches(0.5)
     
-    # --- HEADER BANNER (Tabella 1x2 - Sfondo Blu Scuro) ---
+    # --- HEADER (Tabella 1x2 - Sfondo Blu) ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # Dimensioni Colonne
-    col0_width = Inches(1.2) # Foto
-    col1_width = Inches(6.1) # Testo
+    col0_width = Inches(1.2)
+    col1_width = Inches(6.1)
     table.columns[0].width = col0_width
     table.columns[1].width = col1_width
     
-    # Altezza Riga Fissa
     row = table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
     row.height = Inches(2.0)
@@ -135,11 +121,10 @@ def create_docx(data, photo_stream, lang_code):
     cell_foto = row.cells[0]
     cell_text = row.cells[1]
     
-    # Colore Sfondo (Blu Scuro #20547d) - CRUCIALE
     set_table_background(cell_foto, "20547D")
     set_table_background(cell_text, "20547D")
     
-    # --- FOTO (SINISTRA) ---
+    # FOTO (SX)
     cell_foto.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_stream:
         p_foto = cell_foto.paragraphs[0]
@@ -150,69 +135,57 @@ def create_docx(data, photo_stream, lang_code):
         run_foto = p_foto.add_run()
         run_foto.add_picture(photo_stream, height=Inches(1.5))
     
-    # --- TESTO INTESTAZIONE (DESTRA - BIANCO) ---
+    # TESTO HEADER (DX)
     cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    
-    # Nome
     p_name = cell_text.paragraphs[0]
     p_name.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_name.paragraph_format.space_before = Pt(0)
     p_name.paragraph_format.space_after = Pt(0)
-    p_name.paragraph_format.line_spacing = 1.0
     
     info = data.get('personal_info', {})
     full_name = f"{info.get('first_name', '')} {info.get('last_name', '')}"
     
     run_name = p_name.add_run(clean_text(full_name))
     run_name.font.size = Pt(26)
-    run_name.font.color.rgb = RGBColor(255, 255, 255) # BIANCO
+    run_name.font.color.rgb = RGBColor(255, 255, 255)
     run_name.font.name = 'Arial'
     run_name.bold = True
     
-    # Dati Contatto
     p_info = cell_text.add_paragraph()
     p_info.paragraph_format.space_before = Pt(6)
-    p_info.paragraph_format.space_after = Pt(0)
-    
     contact_str = f"{clean_text(info.get('address', ''))}\n{clean_text(info.get('phone', ''))} | {clean_text(info.get('email', ''))}"
     run_info = p_info.add_run(contact_str)
     run_info.font.size = Pt(10)
-    run_info.font.color.rgb = RGBColor(220, 220, 220) # Grigio Chiaro
+    run_info.font.color.rgb = RGBColor(220, 220, 220)
     run_info.font.name = 'Arial'
     
-    # Spazio dopo banner
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
     
     # --- BODY (Titoli tradotti e Linee) ---
     titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
+    cv_sections = data.get('cv_sections', {})
 
-    # 1. PROFILO (Subito dopo Header - UNA SOLA VOLTA)
-    if data.get('profile_summary'):
+    # Profilo (Primo elemento)
+    if cv_sections.get('profile_summary'):
         h = doc.add_heading(titles.get('profile_summary', 'PROFILE'), level=1)
-        h.runs[0].font.color.rgb = RGBColor(32, 84, 125) # Blu simile al banner
-        h.runs[0].font.name = 'Arial'
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
         h.runs[0].font.size = Pt(12)
         h.runs[0].bold = True
-        add_bottom_border(h) # LINEA BLU SOTTO
-        
-        p = doc.add_paragraph(clean_text(data.get('profile_summary')))
-        p.paragraph_format.space_after = Pt(12)
+        add_bottom_border(h)
+        doc.add_paragraph(clean_text(cv_sections.get('profile_summary')))
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
-    # 2. ALTRE SEZIONI
-    sections_to_print = ['experience', 'education', 'skills', 'languages']
-    
-    for key in sections_to_print:
-        content = data.get(key)
+    # Altre sezioni
+    sections_order = ['experience', 'education', 'skills', 'languages']
+    for key in sections_order:
+        content = cv_sections.get(key)
         if content:
-            # Titolo Sezione Tradotto
             title_text = titles.get(key, key.upper())
-            
             h = doc.add_heading(title_text, level=1)
             h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
-            h.runs[0].font.name = 'Arial'
             h.runs[0].font.size = Pt(12)
             h.runs[0].bold = True
-            add_bottom_border(h) # LINEA BLU SOTTO
+            add_bottom_border(h)
             
             if isinstance(content, list):
                 for item in content:
@@ -227,45 +200,82 @@ def create_docx(data, photo_stream, lang_code):
     buffer.seek(0)
     return buffer
 
-def create_letter_docx(text):
+# --- 7. FUNZIONE CREATE LETTERA (LAYOUT BUSINESS PULITO) ---
+def create_letter_docx(letter_data, personal_info):
+    """Crea lettera formale business senza banner."""
     doc = Document()
-    for paragraph in clean_text(text).split('\n'):
-        if paragraph.strip():
-            doc.add_paragraph(paragraph.strip())
+    
+    # Margini standard business
+    section = doc.sections[0]
+    section.left_margin = Inches(1.0)
+    section.right_margin = Inches(1.0)
+    section.top_margin = Inches(1.0)
+    
+    # MITTENTE (Alto SX)
+    p_sender = doc.add_paragraph()
+    sender_text = f"{personal_info.get('first_name','')} {personal_info.get('last_name','')}\n"
+    sender_text += f"{personal_info.get('address','')}\n"
+    sender_text += f"{personal_info.get('email','')} | {personal_info.get('phone','')}"
+    run_sender = p_sender.add_run(clean_text(sender_text))
+    run_sender.font.size = Pt(10)
+    run_sender.font.name = 'Arial'
+    
+    doc.add_paragraph() # Spazio
+    
+    # DATA (Alto DX)
+    p_date = doc.add_paragraph()
+    p_date.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run_date = p_date.add_run(clean_text(letter_data.get('date_line', '')))
+    run_date.font.size = Pt(11)
+    run_date.font.name = 'Arial'
+    
+    doc.add_paragraph() # Spazio
+    
+    # DESTINATARIO (SX)
+    p_recip = doc.add_paragraph()
+    run_recip = p_recip.add_run(clean_text(letter_data.get('recipient_block', '')))
+    run_recip.font.size = Pt(11)
+    run_recip.font.name = 'Arial'
+    
+    doc.add_paragraph() # Spazio
+    
+    # OGGETTO (Grassetto, 14pt)
+    p_subj = doc.add_paragraph()
+    run_subj = p_subj.add_run(clean_text(letter_data.get('subject_line', '')))
+    run_subj.bold = True
+    run_subj.font.size = Pt(14)
+    run_subj.font.name = 'Arial'
+    
+    doc.add_paragraph() # Spazio
+    
+    # CORPO
+    body_text = clean_text(letter_data.get('body_content', ''))
+    for line in body_text.split('\n'):
+        if line.strip():
+            p = doc.add_paragraph(line.strip())
+            p.style.font.name = 'Arial'
+            p.style.font.size = Pt(11)
+            
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- 6. MAIN LOOP ---
+# --- 8. MAIN LOOP ---
 
 def main():
-    # --- LOGICA LINGUA DINAMICA ---
-    current_code = st.session_state.lang_code
+    lang_name = st.sidebar.selectbox("Lingua / Language", list(LANG_DISPLAY.keys()))
+    current_lang_code = LANG_DISPLAY[lang_name] # Usa variabile locale per chiarezza
+    t = TRANSLATIONS[current_lang_code]
     
-    # Trova il nome della lingua corrispondente al codice
-    current_name = list(LANG_DISPLAY.keys())[0] 
-    for name, code in LANG_DISPLAY.items():
-        if code == current_code:
-            current_name = name
-            break
-            
-    # Etichetta dinamica
-    current_label = TRANSLATIONS.get(current_code, TRANSLATIONS['it'])['lang_label']
-
-    # Sidebar
-    lang_name = st.sidebar.selectbox(current_label, list(LANG_DISPLAY.keys()), index=list(LANG_DISPLAY.keys()).index(current_name))
-    
-    new_lang_code = LANG_DISPLAY[lang_name]
-    if new_lang_code != st.session_state.lang_code:
-        st.session_state.lang_code = new_lang_code
+    # Aggiorna label dinamica (trick per refresh UI)
+    current_label = TRANSLATIONS.get(st.session_state.lang_code, TRANSLATIONS['it'])['lang_label']
+    if current_lang_code != st.session_state.lang_code:
+        st.session_state.lang_code = current_lang_code
         st.rerun()
 
-    t = TRANSLATIONS[st.session_state.lang_code]
-    
     st.title(t['main_title'])
     
-    # API Key
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
@@ -300,36 +310,38 @@ def main():
         else:
             with st.spinner(t['spinner_msg']):
                 try:
-                    # 1. Estrazione Testo
                     reader = pypdf.PdfReader(cv_file)
                     text = ""
                     for p in reader.pages: text += p.extract_text() + "\n"
                     
-                    # 2. Chiama AI
                     model = genai.GenerativeModel("models/gemini-3-pro-preview")
                     prompt = f"""
                     Role: Professional HR Resume Writer.
                     Language: {lang_name}.
                     
-                    Task: 
-                    1. Extract candidate personal info.
-                    2. Write a 'profile_summary'.
-                    3. Rewrite experience, education, skills, languages professionally.
-                    4. Write a cover_letter.
+                    Task: Analyze CV and Job Description.
+                    Output: JSON ONLY.
                     
-                    INPUT CV: {text[:20000]}
-                    INPUT JOB: {job_desc}
-                    
-                    OUTPUT JSON format strictly:
+                    Structure:
                     {{
                         "personal_info": {{ "first_name": "...", "last_name": "...", "email": "...", "phone": "...", "address": "..." }},
-                        "profile_summary": "...",
-                        "experience": ["...", "..."],
-                        "education": ["...", "..."],
-                        "skills": ["...", "..."],
-                        "languages": ["..."],
-                        "cover_letter": "..."
+                        "cv_sections": {{
+                            "profile_summary": "...",
+                            "experience": ["...", "..."],
+                            "education": ["..."],
+                            "skills": ["..."],
+                            "languages": ["..."]
+                        }},
+                        "letter_data": {{
+                            "recipient_block": "Company Name\\nAddress...",
+                            "date_line": "City, Date",
+                            "subject_line": "Subject: ...",
+                            "body_content": "Dear Hiring Manager..."
+                        }}
                     }}
+                    
+                    INPUT CV: {text[:30000]}
+                    INPUT JOB: {job_desc}
                     """
                     
                     response = model.generate_content(prompt)
@@ -353,7 +365,7 @@ def main():
                 st.session_state.processed_photo.save(img_stream, format='JPEG')
                 img_stream.seek(0)
                 
-            docx = create_docx(data, img_stream, st.session_state.lang_code)
+            docx = create_cv_docx(data, img_stream, st.session_state.lang_code)
             
             st.download_button(
                 label=f"📥 {t['down_cv']}",
@@ -361,11 +373,12 @@ def main():
                 file_name="CV_Optimized.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-            st.json(data)
+            st.json(data.get('cv_sections'))
             
         with tab2:
-            letter = data.get('cover_letter', '')
-            docx_l = create_letter_docx(letter)
+            letter_data = data.get('letter_data', {})
+            p_info = data.get('personal_info', {})
+            docx_l = create_letter_docx(letter_data, p_info)
             
             st.download_button(
                 label=f"📥 {t['down_let']}",
@@ -373,7 +386,7 @@ def main():
                 file_name="Cover_Letter.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-            st.markdown(letter)
+            st.markdown(letter_data.get('body_content', ''))
 
 if __name__ == "__main__":
     main()
