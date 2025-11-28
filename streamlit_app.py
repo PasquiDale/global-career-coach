@@ -48,14 +48,14 @@ LANG_DISPLAY = {
 }
 
 TRANSLATIONS = {
-    'it': {'sidebar_title': 'Impostazioni Profilo', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore'},
-    'en_us': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error'},
-    'en_uk': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error'},
-    'de_ch': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stelleninserat', 'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler'},
-    'de_de': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler'},
-    'fr': {'sidebar_title': 'Paramètres du Profil', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte de l\'offre ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur'},
-    'es': {'sidebar_title': 'Configuración', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error'},
-    'pt': {'sidebar_title': 'Configurações', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro'}
+    'it': {'sidebar_title': 'Impostazioni Profilo', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'profile_title': 'PROFILO PERSONALE'},
+    'en_us': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE'},
+    'en_uk': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE'},
+    'de_ch': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stelleninserat', 'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL'},
+    'de_de': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL'},
+    'fr': {'sidebar_title': 'Paramètres du Profil', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte de l\'offre ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur', 'profile_title': 'PROFIL PROFESSIONNEL'},
+    'es': {'sidebar_title': 'Configuración', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL'},
+    'pt': {'sidebar_title': 'Configurações', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro', 'profile_title': 'PERFIL PROFISSIONAL'}
 }
 
 SECTION_TITLES = {
@@ -81,7 +81,7 @@ def get_todays_date(lang_code):
     return now.strftime("%Y-%m-%d")
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo blu scuro usando XML."""
+    """Imposta lo sfondo della cella (XML hacking)."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
@@ -135,10 +135,11 @@ def create_cv_docx(json_data, photo_img, lang_code):
     header_table.autofit = False
     header_table.allow_autofit = False
     
+    # Dimensioni esatte
     header_table.columns[0].width = Inches(1.2)  # Foto
     header_table.columns[1].width = Inches(6.1)  # Testo
     
-    # Imposta altezza minima riga header
+    # Altezza minima riga header
     row = header_table.rows[0]
     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     row.height = Inches(2.0)
@@ -147,25 +148,33 @@ def create_cv_docx(json_data, photo_img, lang_code):
     for cell in row.cells:
         set_table_background(cell, "20547D")
 
-    # Cella 1: Foto (Sinistra)
+    # Cella 1: Foto (Sinistra, Centrata Verticalmente, Margini Zero)
     cell_photo = header_table.cell(0, 0)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_img:
         img_buffer = io.BytesIO()
         photo_img.save(img_buffer, format='PNG')
         img_buffer.seek(0)
+        
+        # Paragrafo Foto: Zero Margini per centratura perfetta
         p = cell_photo.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT # Foto a sinistra
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
+        
         run = p.add_run()
         run.add_picture(img_buffer, width=Inches(1.2))
 
-    # Cella 2: Dati Personali (Centro)
+    # Cella 2: Dati Personali (Centro Verticale, Testo Bianco)
     cell_info = header_table.cell(0, 1)
     cell_info.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     pi = json_data.get('personal_info', {})
     
     p_info = cell_info.paragraphs[0]
     p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_info.paragraph_format.space_before = Pt(0)
+    p_info.paragraph_format.space_after = Pt(0)
     
     # Nome (Bianco)
     name_run = p_info.add_run(f"{pi.get('name', '')}\n")
@@ -185,7 +194,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
 
     # --- BODY ---
     cv_sections = json_data.get('cv_sections', {})
-    titles = SECTION_TITLES.get(lang_code, {}) # Recupera titoli tradotti
+    titles = SECTION_TITLES.get(lang_code, {}) 
     
     keys_order = ['profile_summary', 'experience', 'education', 'skills', 'languages', 'interests']
     
@@ -211,7 +220,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
                 p.paragraph_format.space_after = Pt(2)
-            # SPAZIO EXTRA TRA BLOCCHI LISTA
+            # SPAZIO EXTRA (Richiesto)
             doc.add_paragraph("") 
         else:
             p = doc.add_paragraph(str(content))
@@ -258,7 +267,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
         p_rec = doc.add_paragraph(rec)
         p_rec.space_after = Pt(24)
 
-    # 4. OGGETTO
+    # 4. OGGETTO (Grassetto)
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
@@ -279,7 +288,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
 
     doc.add_paragraph().space_after = Pt(12)
 
-    # 6. FIRMA (Saluti + Spazio + Nome)
+    # 6. FIRMA
     closing = ld.get('closing', 'Freundliche Grüsse')
     if candidate_name:
         closing = closing.replace(candidate_name, "").strip()
@@ -347,7 +356,8 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                model = genai.GenerativeModel("models/gemini-3-pro-preview") # NO TOOLS
+                # --- CHIAMATA AI (SENZA TOOLS) ---
+                model = genai.GenerativeModel("models/gemini-3-pro-preview")
                 
                 prompt = f"""
                 Act as an expert HR Resume Writer.
