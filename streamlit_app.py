@@ -70,7 +70,7 @@ SECTION_TITLES = {
 # --- 5. FUNZIONI HELPER ---
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo della cella (XML hacking)."""
+    """Imposta lo sfondo della cella (XML hacking). CRUCIALE PER IL BLU."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
@@ -113,7 +113,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception:
         return ""
 
-# --- 6. CORE LOGIC: CREAZIONE CV WORD (FIX SPAZIATURA) ---
+# --- 6. CORE LOGIC: CREAZIONE CV WORD ---
 
 def create_cv_docx(json_data, photo_img, lang_code):
     doc = Document()
@@ -125,7 +125,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-    # --- HEADER BLU (#20547D) ---
+    # --- HEADER BLU (#20547D) CONGELATO ---
     header_table = doc.add_table(rows=1, cols=2)
     header_table.autofit = False
     header_table.allow_autofit = False
@@ -210,28 +210,23 @@ def create_cv_docx(json_data, photo_img, lang_code):
         h.space_before = Pt(12)
         h.space_after = Pt(6)
         
-        # Contenuto con spaziatura migliorata
+        # Contenuto (NUOVA SPAZIATURA)
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
-                p.paragraph_format.space_after = Pt(0) # Reset spazio dopo bullet standard
-                
-                # --- FIX SPAZIATURA: Aggiunge un micro-paragrafo vuoto dopo ogni voce ---
-                spacer = doc.add_paragraph()
-                spacer.paragraph_format.space_after = Pt(4) # Spazio effettivo
-                spacer.paragraph_format.space_before = Pt(0)
-                spacer.paragraph_format.line_spacing = Pt(1) # Altezza minima per non occupare troppo
-                
+                # AGGIUNTA FONDAMENTALE: Spazio dopo ogni punto elenco
+                p.paragraph_format.space_after = Pt(12) 
         else:
             p = doc.add_paragraph(str(content))
-            p.paragraph_format.space_after = Pt(6)
+            # AGGIUNTA FONDAMENTALE: Spazio dopo ogni paragrafo
+            p.paragraph_format.space_after = Pt(12)
 
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- 7. CORE LOGIC: CREAZIONE LETTERA WORD ---
+# --- 7. CORE LOGIC: CREAZIONE LETTERA WORD (CONGELATA) ---
 
 def create_letter_docx(json_data, lang_code, candidate_name):
     doc = Document()
@@ -356,7 +351,7 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # --- CHIAMATA AI (NO TOOLS) ---
+                # --- CHIAMATA AI (SENZA TOOLS) ---
                 model = genai.GenerativeModel("models/gemini-3-pro-preview")
                 
                 prompt = f"""
