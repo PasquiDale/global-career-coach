@@ -28,6 +28,7 @@ if 'processed_photo' not in st.session_state:
 
 # --- 3. COSTANTI E DIZIONARI ---
 
+# Mappa per visualizzazione lingua -> codice interno
 LANG_DISPLAY = {
     "Italiano": "it",
     "English (US)": "en_us",
@@ -38,7 +39,7 @@ LANG_DISPLAY = {
     "Português": "pt"
 }
 
-# Traduzioni interfaccia
+# Traduzioni Interfaccia
 TRANSLATIONS = {
     'it': {'sidebar_title': 'Impostazioni Profilo', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Generatore CV Professionale', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'missing_key': 'Chiave API mancante'},
     'en_us': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Professional CV Generator', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Description', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'missing_key': 'Missing API Key'},
@@ -51,36 +52,32 @@ TRANSLATIONS = {
 
 # Titoli Sezioni forzati per lingua
 SECTION_TITLES = {
-    'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE E FORMAZIONE', 'skills': 'COMPETENZE', 'profile_summary': 'PROFILO PERSONALE', 'languages': 'LINGUE'},
-    'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE & FÄHIGKEITEN', 'profile_summary': 'PERSÖNLICHES PROFIL', 'languages': 'SPRACHEN'},
-    'de_de': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'profile_summary': 'PERSÖNLICHES PROFIL', 'languages': 'SPRACHEN'},
-    'en_us': {'experience': 'PROFESSIONAL EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'profile_summary': 'PROFESSIONAL PROFILE', 'languages': 'LANGUAGES'},
-    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'profile_summary': 'PROFESSIONAL PROFILE', 'languages': 'LANGUAGES'},
-    'es': {'experience': 'EXPERIENCIA LABORAL', 'education': 'EDUCACIÓN', 'skills': 'HABILIDADES', 'profile_summary': 'PERFIL PROFESIONAL', 'languages': 'IDIOMAS'},
-    'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'profile_summary': 'PERFIL PROFISSIONAL', 'languages': 'IDIOMAS'}
+    'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE E FORMAZIONE', 'skills': 'COMPETENZE', 'personal_info': 'DATI PERSONALI', 'profile_summary': 'PROFILO PERSONALE'},
+    'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE & FÄHIGKEITEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
+    'de_de': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
+    'en_us': {'experience': 'PROFESSIONAL EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL PROFILE'},
+    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL PROFILE'},
+    'es': {'experience': 'EXPERIENCIA LABORAL', 'education': 'EDUCACIÓN', 'skills': 'HABILIDADES', 'personal_info': 'DATOS PERSONALES', 'profile_summary': 'PERFIL PROFESIONAL'},
+    'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'personal_info': 'DADOS PESSOAIS', 'profile_summary': 'PERFIL PROFISSIONAL'}
 }
 
 # --- 4. FUNZIONI HELPER ---
 
-def set_table_background(table, color_hex):
-    """Imposta lo sfondo dell'intera tabella tramite XML."""
-    tblPr = table._tblPr
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:val'), 'clear')
-    shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), color_hex)
-    tblPr.append(shd)
+def set_table_background(cell, color_hex):
+    """Imposta lo sfondo BLU della cella tramite XML."""
+    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
+    cell._tc.get_or_add_tcPr().append(shading_elm)
 
 def add_bottom_border(paragraph):
-    """Aggiunge una linea orizzontale blu sotto il paragrafo."""
+    """Aggiunge una linea orizzontale BLU sotto il titolo."""
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
     bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')      # Spessore linea
-    bottom.set(qn('w:space'), '1')   # Spaziatura
-    bottom.set(qn('w:color'), '20547D') # Colore Blu Scuro
+    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '20547D') # Blu Scuro
     pbdr.append(bottom)
     pPr.append(pbdr)
 
@@ -96,7 +93,7 @@ def clean_text(text):
     return text.replace("**", "").replace("##", "").strip()
 
 def create_docx(data, photo_stream, lang_code):
-    """Crea il file Word con layout banner preciso e titoli tradotti."""
+    """Crea il file Word con Header Blu e Foto Allineata."""
     doc = Document()
     
     # 1. Impostazione Margini
@@ -109,12 +106,9 @@ def create_docx(data, photo_stream, lang_code):
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     
-    # Colore Sfondo Header (#20547d)
-    set_table_background(table, "20547D")
-    
     # Dimensioni Colonne
-    col0_width = Inches(1.5)
-    col1_width = Inches(6.0)
+    col0_width = Inches(1.2) # Foto
+    col1_width = Inches(6.1) # Testo
     table.columns[0].width = col0_width
     table.columns[1].width = col1_width
     
@@ -125,6 +119,10 @@ def create_docx(data, photo_stream, lang_code):
     
     cell_foto = row.cells[0]
     cell_text = row.cells[1]
+    
+    # Colore Sfondo (Blu Scuro #20547d) - CRUCIALE
+    set_table_background(cell_foto, "20547D")
+    set_table_background(cell_text, "20547D")
     
     # --- FOTO (SINISTRA) ---
     cell_foto.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
@@ -137,7 +135,7 @@ def create_docx(data, photo_stream, lang_code):
         run_foto = p_foto.add_run()
         run_foto.add_picture(photo_stream, height=Inches(1.5))
     
-    # --- TESTO INTESTAZIONE (DESTRA) ---
+    # --- TESTO INTESTAZIONE (DESTRA - BIANCO) ---
     cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
     # Nome
@@ -152,11 +150,11 @@ def create_docx(data, photo_stream, lang_code):
     
     run_name = p_name.add_run(clean_text(full_name))
     run_name.font.size = Pt(26)
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
+    run_name.font.color.rgb = RGBColor(255, 255, 255) # BIANCO
     run_name.font.name = 'Arial'
     run_name.bold = True
     
-    # Contatti
+    # Dati Contatto
     p_info = cell_text.add_paragraph()
     p_info.paragraph_format.space_before = Pt(6)
     p_info.paragraph_format.space_after = Pt(0)
@@ -164,30 +162,28 @@ def create_docx(data, photo_stream, lang_code):
     contact_str = f"{clean_text(info.get('address', ''))}\n{clean_text(info.get('phone', ''))} | {clean_text(info.get('email', ''))}"
     run_info = p_info.add_run(contact_str)
     run_info.font.size = Pt(10)
-    run_info.font.color.rgb = RGBColor(220, 220, 220)
+    run_info.font.color.rgb = RGBColor(220, 220, 220) # Grigio Chiaro
     run_info.font.name = 'Arial'
-
+    
     # Spazio dopo banner
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
-
-    # --- BODY (Con titoli corretti e linee) ---
     
-    # Carichiamo i titoli nella lingua corretta
+    # --- BODY (Titoli tradotti e Linee) ---
     titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
 
-    # 1. PROFILO (Se presente)
+    # 1. PROFILO (Subito dopo Header - UNA SOLA VOLTA)
     if data.get('profile_summary'):
         h = doc.add_heading(titles.get('profile_summary', 'PROFILE'), level=1)
         h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
         h.runs[0].font.name = 'Arial'
         h.runs[0].font.size = Pt(12)
         h.runs[0].bold = True
-        add_bottom_border(h) # LINEA SOTTO
+        add_bottom_border(h) # LINEA BLU SOTTO
         
         p = doc.add_paragraph(clean_text(data.get('profile_summary')))
         p.paragraph_format.space_after = Pt(12)
 
-    # 2. ALTRE SEZIONI (Ordine forzato)
+    # 2. ALTRE SEZIONI
     sections_to_print = ['experience', 'education', 'skills', 'languages']
     
     for key in sections_to_print:
@@ -201,18 +197,16 @@ def create_docx(data, photo_stream, lang_code):
             h.runs[0].font.name = 'Arial'
             h.runs[0].font.size = Pt(12)
             h.runs[0].bold = True
-            add_bottom_border(h) # LINEA SOTTO
+            add_bottom_border(h) # LINEA BLU SOTTO
             
-            # Contenuto
             if isinstance(content, list):
                 for item in content:
-                    p = doc.add_paragraph(clean_text(str(item)), style='List Bullet')
+                    doc.add_paragraph(clean_text(str(item)), style='List Bullet')
             else:
                 doc.add_paragraph(clean_text(str(content)))
             
-            doc.add_paragraph().paragraph_format.space_after = Pt(8) # Spazio tra sezioni
+            doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
-    # Salvataggio
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -228,7 +222,7 @@ def create_letter_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- 5. MAIN APP ---
+# --- 5. MAIN LOOP ---
 
 def main():
     # Sidebar
@@ -239,6 +233,7 @@ def main():
     
     st.title(t['main_title'])
     
+    # API Key
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
@@ -273,13 +268,13 @@ def main():
         else:
             with st.spinner(t['spinner_msg']):
                 try:
+                    # 1. Estrazione Testo
                     reader = pypdf.PdfReader(cv_file)
                     text = ""
                     for p in reader.pages: text += p.extract_text() + "\n"
                     
+                    # 2. Chiama AI
                     model = genai.GenerativeModel("models/gemini-3-pro-preview")
-                    
-                    # Prompt Ottimizzato
                     prompt = f"""
                     Role: Professional HR Resume Writer.
                     Language: {lang_name}.
@@ -290,7 +285,7 @@ def main():
                     3. Rewrite experience, education, skills, languages professionally.
                     4. Write a cover_letter.
                     
-                    INPUT CV: {text[:30000]}
+                    INPUT CV: {text[:20000]}
                     INPUT JOB: {job_desc}
                     
                     OUTPUT JSON format strictly:
