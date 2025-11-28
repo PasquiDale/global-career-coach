@@ -16,7 +16,6 @@ from datetime import datetime
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
     page_title="Global Career Coach",
-    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -59,14 +58,13 @@ TRANSLATIONS = {
     'pt': {'sidebar_title': 'Configurações', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro'}
 }
 
-# Dizionario Titoli Sezioni (CORRETTO E COMPLETO)
 SECTION_TITLES = {
     'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE E FORMAZIONE', 'skills': 'COMPETENZE', 'languages': 'LINGUE', 'interests': 'INTERESSI', 'personal_info': 'DATI PERSONALI', 'profile_summary': 'PROFILO PERSONALE'},
     'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE & FÄHIGKEITEN', 'languages': 'SPRACHKENNTNISSE', 'interests': 'INTERESSEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
     'de_de': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'languages': 'SPRACHKENNTNISSE', 'interests': 'INTERESSEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
     'fr': {'experience': 'EXPÉRIENCE PROFESSIONNELLE', 'education': 'FORMATION', 'skills': 'COMPÉTENCES', 'languages': 'LANGUES', 'interests': 'CENTRES D\'INTÉRÊT', 'personal_info': 'INFORMATIONS PERSONNELLES', 'profile_summary': 'PROFIL PROFESSIONNEL'},
     'en_us': {'experience': 'PROFESSIONAL EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL SUMMARY'},
-    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL PROFILE'},
+    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL SUMMARY'},
     'es': {'experience': 'EXPERIENCIA LABORAL', 'education': 'EDUCACIÓN', 'skills': 'HABILIDADES', 'languages': 'IDIOMAS', 'interests': 'INTERESES', 'personal_info': 'DATOS PERSONALES', 'profile_summary': 'PERFIL PROFESIONAL'},
     'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'languages': 'IDIOMAS', 'interests': 'INTERESSES', 'personal_info': 'DADOS PESSOAIS', 'profile_summary': 'PERFIL PROFISSIONAL'}
 }
@@ -83,7 +81,7 @@ def get_todays_date(lang_code):
     return now.strftime("%Y-%m-%d")
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo blu scuro per l'header del CV."""
+    """Imposta lo sfondo blu scuro usando XML."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
@@ -140,12 +138,16 @@ def create_cv_docx(json_data, photo_img, lang_code):
     header_table.columns[0].width = Inches(1.2)  # Foto
     header_table.columns[1].width = Inches(6.1)  # Testo
     
-    for row in header_table.rows:
-        row.height = Inches(2.0) # Altezza fissa header
-        for cell in row.cells:
-            set_table_background(cell, "20547D") # Blu Scuro
+    # Imposta altezza minima riga header
+    row = header_table.rows[0]
+    row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    row.height = Inches(2.0)
 
-    # Cella 1: Foto
+    # Colore Sfondo
+    for cell in row.cells:
+        set_table_background(cell, "20547D")
+
+    # Cella 1: Foto (Sinistra)
     cell_photo = header_table.cell(0, 0)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_img:
@@ -153,22 +155,22 @@ def create_cv_docx(json_data, photo_img, lang_code):
         photo_img.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         p = cell_photo.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER # Foto a sinistra nella cella (o centro)
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT # Foto a sinistra
         run = p.add_run()
         run.add_picture(img_buffer, width=Inches(1.2))
 
-    # Cella 2: Dati Personali
+    # Cella 2: Dati Personali (Centro)
     cell_info = header_table.cell(0, 1)
     cell_info.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     pi = json_data.get('personal_info', {})
     
     p_info = cell_info.paragraphs[0]
-    p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER # Testo centrato
+    p_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
     # Nome (Bianco)
     name_run = p_info.add_run(f"{pi.get('name', '')}\n")
     name_run.font.name = 'Calibri'
-    name_run.font.size = Pt(24)
+    name_run.font.size = Pt(22)
     name_run.font.color.rgb = RGBColor(255, 255, 255)
     name_run.bold = True
     
@@ -183,19 +185,16 @@ def create_cv_docx(json_data, photo_img, lang_code):
 
     # --- BODY ---
     cv_sections = json_data.get('cv_sections', {})
+    titles = SECTION_TITLES.get(lang_code, {}) # Recupera titoli tradotti
     
-    # Recupero titoli localizzati corretti
-    titles = SECTION_TITLES.get(lang_code, {})
-    
-    # Ordine sezioni
     keys_order = ['profile_summary', 'experience', 'education', 'skills', 'languages', 'interests']
     
     for key in keys_order:
         content = cv_sections.get(key)
         if not content: continue
             
-        # Titolo Sezione Localizzato
-        title_text = titles.get(key, key.upper()) # Usa il dizionario corretto
+        # Titolo Sezione
+        title_text = titles.get(key, key.upper())
 
         h = doc.add_paragraph()
         add_bottom_border(h)
@@ -212,7 +211,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
                 p.paragraph_format.space_after = Pt(2)
-            # SPAZIO EXTRA TRA LE LISTE (es. tra i lavori)
+            # SPAZIO EXTRA TRA BLOCCHI LISTA
             doc.add_paragraph("") 
         else:
             p = doc.add_paragraph(str(content))
@@ -259,7 +258,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
         p_rec = doc.add_paragraph(rec)
         p_rec.space_after = Pt(24)
 
-    # 4. OGGETTO (Grassetto)
+    # 4. OGGETTO
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
@@ -280,7 +279,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
 
     doc.add_paragraph().space_after = Pt(12)
 
-    # 6. FIRMA
+    # 6. FIRMA (Saluti + Spazio + Nome)
     closing = ld.get('closing', 'Freundliche Grüsse')
     if candidate_name:
         closing = closing.replace(candidate_name, "").strip()
@@ -288,8 +287,8 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     p_close = doc.add_paragraph(closing)
     p_close.paragraph_format.keep_with_next = True
     
-    # 3 Righe vuote
-    for _ in range(3):
+    # 4 Righe vuote per la firma
+    for _ in range(4):
         p_s = doc.add_paragraph()
         p_s.paragraph_format.keep_with_next = True
         p_s.paragraph_format.space_after = Pt(0)
@@ -348,8 +347,7 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # --- CHIAMATA AI (SENZA TOOLS) ---
-                model = genai.GenerativeModel("models/gemini-3-pro-preview")
+                model = genai.GenerativeModel("models/gemini-3-pro-preview") # NO TOOLS
                 
                 prompt = f"""
                 Act as an expert HR Resume Writer.
