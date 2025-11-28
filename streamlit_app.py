@@ -11,6 +11,7 @@ from PIL import Image, ImageOps
 import pypdf
 from datetime import datetime
 import json
+import re
 
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
@@ -112,7 +113,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception:
         return ""
 
-# --- 6. CORE LOGIC: CREAZIONE CV WORD ---
+# --- 6. CORE LOGIC: CREAZIONE CV WORD (FIX SPAZIATURA) ---
 
 def create_cv_docx(json_data, photo_img, lang_code):
     doc = Document()
@@ -142,7 +143,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
     for cell in row.cells:
         set_table_background(cell, "20547D")
 
-    # Cella 1: Foto (Sinistra)
+    # Cella 1: Foto (Sinistra, Centrata Verticalmente, Margini Zero)
     cell_photo = header_table.cell(0, 0)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_img:
@@ -188,9 +189,8 @@ def create_cv_docx(json_data, photo_img, lang_code):
 
     # --- BODY ---
     cv_sections = json_data.get('cv_sections', {})
-    titles = SECTION_TITLES.get(lang_code, {}) # Dizionario titoli corretti
+    titles = SECTION_TITLES.get(lang_code, {})
     
-    # Ordine sezioni
     keys_order = ['profile_summary', 'experience', 'education', 'skills', 'languages', 'interests']
     
     for key in keys_order:
@@ -210,13 +210,18 @@ def create_cv_docx(json_data, photo_img, lang_code):
         h.space_before = Pt(12)
         h.space_after = Pt(6)
         
-        # Contenuto
+        # Contenuto con spaziatura migliorata
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
-                p.paragraph_format.space_after = Pt(2)
-            # SPAZIO EXTRA DOPO OGNI BLOCCO DI LISTE (Es. tra esperienze)
-            doc.add_paragraph("") 
+                p.paragraph_format.space_after = Pt(0) # Reset spazio dopo bullet standard
+                
+                # --- FIX SPAZIATURA: Aggiunge un micro-paragrafo vuoto dopo ogni voce ---
+                spacer = doc.add_paragraph()
+                spacer.paragraph_format.space_after = Pt(4) # Spazio effettivo
+                spacer.paragraph_format.space_before = Pt(0)
+                spacer.paragraph_format.line_spacing = Pt(1) # Altezza minima per non occupare troppo
+                
         else:
             p = doc.add_paragraph(str(content))
             p.paragraph_format.space_after = Pt(6)
@@ -262,7 +267,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
         p_rec = doc.add_paragraph(rec)
         p_rec.space_after = Pt(24)
 
-    # 4. OGGETTO
+    # 4. OGGETTO (Grassetto)
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
@@ -291,7 +296,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     p_close = doc.add_paragraph(closing)
     p_close.paragraph_format.keep_with_next = True
     
-    # 4 Righe vuote per firma
+    # 4 Righe vuote per la firma
     for _ in range(4):
         p_s = doc.add_paragraph()
         p_s.paragraph_format.keep_with_next = True
@@ -307,7 +312,6 @@ def create_letter_docx(json_data, lang_code, candidate_name):
 
 # --- 8. UI PRINCIPALE ---
 
-# Sidebar
 with st.sidebar:
     lang_sel = st.selectbox("Language / Lingua", list(LANG_DISPLAY.keys()))
     st.session_state.lang_code = LANG_DISPLAY[lang_sel]
@@ -327,10 +331,8 @@ with st.sidebar:
     else:
         st.session_state.processed_photo = None
 
-# Main
 st.title(t['main_title'])
 
-# Configurazione API
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
@@ -354,7 +356,7 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # --- CHIAMATA AI (SENZA TOOLS) ---
+                # --- CHIAMATA AI (NO TOOLS) ---
                 model = genai.GenerativeModel("models/gemini-3-pro-preview")
                 
                 prompt = f"""
@@ -406,7 +408,6 @@ if st.button(t['btn_label'], type="primary"):
             except Exception as e:
                 st.error(f"{t['error']}: {str(e)}")
 
-# Visualizzazione Risultati e Download
 if st.session_state.generated_data:
     data = st.session_state.generated_data
     tabs = st.tabs([t['tab_cv'], t['tab_letter']])
