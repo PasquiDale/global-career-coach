@@ -1,22 +1,21 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import qn
 import io
-import json
 import datetime
+import json
 import urllib.parse
 from PIL import Image, ImageOps
 
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
     page_title="Global Career Coach",
-    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -36,12 +35,17 @@ st.markdown("""
         border: 1px solid #ddd;
         margin-bottom: 10px;
         background-color: #f9f9f9;
+        transition: transform 0.2s;
     }
-    a { text-decoration: none; font-weight: bold; }
+    .search-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    a { text-decoration: none; font-weight: bold; color: #0066cc; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SESSION STATE ---
+# --- 3. INIZIALIZZAZIONE SESSION STATE ---
 if 'lang_code' not in st.session_state:
     st.session_state.lang_code = 'it'
 if 'generated_data' not in st.session_state:
@@ -87,6 +91,12 @@ TRANSLATIONS = {
     }
 }
 
+SECTION_TITLES = {
+    "it": {"exp": "ESPERIENZA PROFESSIONALE", "edu": "ISTRUZIONE", "skill": "COMPETENZE"},
+    "en": {"exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skill": "SKILLS"},
+    "de": {"exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skill": "KENNTNISSE"}
+}
+
 # --- 5. FUNZIONI HELPER ---
 
 def get_todays_date(lang):
@@ -96,16 +106,13 @@ def get_todays_date(lang):
     return now.strftime("%B %d, %Y")
 
 def clean_json_string(s):
-    """Pulisce la stringa JSON dai backticks di markdown"""
     return s.replace("```json", "").replace("```", "").strip()
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo di una cella DOCX"""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
 def add_bottom_border(paragraph):
-    """Aggiunge una linea sotto il paragrafo"""
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
@@ -119,18 +126,18 @@ def add_bottom_border(paragraph):
 
 def process_image(uploaded_file, border_width):
     if uploaded_file:
-        img = Image.open(uploaded_file)
-        img = ImageOps.exif_transpose(img) # Fix rotazione
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        # Creiamo un bordo bianco
-        img_with_border = ImageOps.expand(img, border=int(border_width), fill='white')
-        
-        # Salviamo in bytes per il docx
-        img_byte_arr = io.BytesIO()
-        img_with_border.save(img_byte_arr, format='JPEG', quality=95)
-        img_byte_arr.seek(0)
-        return img_byte_arr
+        try:
+            img = Image.open(uploaded_file)
+            img = ImageOps.exif_transpose(img)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img_with_border = ImageOps.expand(img, border=int(border_width), fill='white')
+            img_byte_arr = io.BytesIO()
+            img_with_border.save(img_byte_arr, format='JPEG', quality=95)
+            img_byte_arr.seek(0)
+            return img_byte_arr
+        except:
+            return None
     return None
 
 def extract_text_from_pdf(file):
@@ -141,26 +148,19 @@ def extract_text_from_pdf(file):
     except:
         return ""
 
-# --- 6. FUNZIONE SEARCH JOBS (CRITICA) ---
+# --- 6. FUNZIONE SEARCH JOBS (LIVE + FALLBACK) ---
 
 def search_jobs_live(api_key, role, location, radius, lang):
-    """
-    Tenta la ricerca live con Google Search Retrieval.
-    Se fallisce, usa Smart Links generati.
-    """
     genai.configure(api_key=api_key)
-    results_list = []
     
-    # TENTATIVO 1: LIVE SEARCH (SINTASSI CORRETTA)
+    # TENTATIVO 1: LIVE SEARCH CON GEMINI 2.0 FLASH
     try:
-        # Sintassi ufficiale per il tool di ricerca
+        # Sintassi ufficiale per Search Retrieval
         tools = [{'google_search_retrieval': {}}]
-        
-        # Usiamo Flash 2.0 perché supporta i tool ed è veloce
         model = genai.GenerativeModel("models/gemini-2.0-flash", tools=tools)
         
         prompt = f"""
-        Find 5 ACTIVE and RECENT job postings for the role '{role}' in '{location}' (within {radius} km).
+        Find 5 ACTIVE job postings for the role '{role}' in '{location}' (within {radius} km).
         Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}.
         Language: {lang}.
         
@@ -178,25 +178,26 @@ def search_jobs_live(api_key, role, location, radius, lang):
         """
         
         response = model.generate_content(prompt)
-        # Pulizia JSON
-        json_str = clean_json_string(response.text)
-        results_list = json.loads(json_str)
-        
-        # Se la lista è vuota o il link è finto, solleviamo eccezione per andare al fallback
-        if not results_list or "google.com" in results_list[0].get('link', ''):
-            raise Exception("No valid live links found")
+        # Se la risposta non contiene parti di testo valide o tool use fallito
+        if not response.text:
+            raise Exception("Empty response from Search Tool")
             
-        return results_list, "LIVE"
+        json_str = clean_json_string(response.text)
+        results = json.loads(json_str)
+        
+        # Validazione minima
+        if not results:
+            raise Exception("No results found via Live Search")
+            
+        return results
 
     except Exception as e:
         # TENTATIVO 2: FALLBACK (SMART LINKS)
-        # Se il tool fallisce, chiediamo a Gemini solo i nomi delle aziende
-        # e costruiamo noi i link di ricerca Google.
-        
-        print(f"Live Search Error: {e}") # Debug console
+        st.warning(f"Live Search unavailable ({str(e)}). Using Smart Search.")
         
         try:
-            model_fallback = genai.GenerativeModel("models/gemini-2.0-flash") # No tools
+            # Modello standard senza tools per generare solo nomi
+            model_fallback = genai.GenerativeModel("models/gemini-2.0-flash")
             
             fallback_prompt = f"""
             Identify 5 companies in '{location}' that typically hire for '{role}'.
@@ -209,12 +210,11 @@ def search_jobs_live(api_key, role, location, radius, lang):
             resp = model_fallback.generate_content(fallback_prompt)
             data = json.loads(clean_json_string(resp.text))
             
-            # Costruzione Smart Links
             smart_results = []
             for item in data:
                 comp = item.get('company', 'Unknown')
                 title = item.get('role_title', role)
-                # Creiamo un link di ricerca Google
+                # Costruzione manuale link Google Search
                 query = f"jobs {title} at {comp} {location}"
                 encoded_query = urllib.parse.quote(query)
                 smart_link = f"https://www.google.com/search?q={encoded_query}"
@@ -226,17 +226,17 @@ def search_jobs_live(api_key, role, location, radius, lang):
                     "snippet": "Smart Search Link generated by AI"
                 })
             
-            return smart_results, "SMART_FALLBACK"
+            return smart_results
             
         except Exception as e2:
-            return [], f"ERROR: {str(e2)}"
+            st.error(f"Search failed completely: {e2}")
+            return []
 
 # --- 7. FUNZIONE GENERAZIONE DOCUMENTI ---
 
 def generate_docs_ai(api_key, cv_text, role, location, lang):
     genai.configure(api_key=api_key)
-    
-    # Usiamo il modello potente per la scrittura
+    # Usiamo 3.0 Pro per la scrittura di qualità
     model = genai.GenerativeModel("models/gemini-3-pro-preview")
     
     prompt = f"""
@@ -268,7 +268,7 @@ def generate_docs_ai(api_key, cv_text, role, location, lang):
 
 # --- 8. FUNZIONI DOCX (CONGELATE) ---
 
-def create_cv_docx(data, photo_bytes):
+def create_cv_docx(data, photo_bytes, lang_code='it'):
     doc = Document()
     
     # Header Blu #20547D (Tabella 1x2)
@@ -278,6 +278,10 @@ def create_cv_docx(data, photo_bytes):
     table.columns[1].width = Inches(5.0) # Testo
     
     row = table.rows[0]
+    # Set altezza minima header
+    row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    row.height = Inches(2.0)
+    
     cell_photo = row.cells[0]
     cell_info = row.cells[1]
     
@@ -313,6 +317,7 @@ def create_cv_docx(data, photo_bytes):
     
     # Body
     cv = data.get('cv_content', {})
+    titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en'])
     
     # Profilo
     h = doc.add_heading('PROFILO', level=1)
@@ -320,7 +325,7 @@ def create_cv_docx(data, photo_bytes):
     doc.add_paragraph(cv.get('summary', ''))
     
     # Esperienza
-    h = doc.add_heading('ESPERIENZA', level=1)
+    h = doc.add_heading(titles['exp'], level=1)
     add_bottom_border(h)
     for exp in cv.get('experience', []):
         p = doc.add_paragraph()
@@ -331,13 +336,18 @@ def create_cv_docx(data, photo_bytes):
         doc.add_paragraph("") # Spazio
         
     # Skills
-    h = doc.add_heading('COMPETENZE', level=1)
+    h = doc.add_heading(titles['skill'], level=1)
     add_bottom_border(h)
     doc.add_paragraph(cv.get('skills', ''))
     
+    # Education
+    h = doc.add_heading(titles['edu'], level=1)
+    add_bottom_border(h)
+    doc.add_paragraph(cv.get('education', ''))
+    
     return doc
 
-def create_letter_docx(data):
+def create_letter_docx(data, lang_code='it'):
     doc = Document()
     ud = data.get('user_data', {})
     
@@ -345,7 +355,7 @@ def create_letter_docx(data):
     doc.add_paragraph(ud.get('name', ''))
     doc.add_paragraph(ud.get('email', ''))
     doc.add_paragraph(ud.get('phone', ''))
-    doc.add_paragraph(datetime.datetime.now().strftime("%d/%m/%Y"))
+    doc.add_paragraph(get_todays_date(lang_code))
     doc.add_paragraph("")
     
     # Corpo
@@ -355,12 +365,11 @@ def create_letter_docx(data):
     doc.add_paragraph("")
     doc.add_paragraph("Cordiali Saluti,")
     doc.add_paragraph("")
-    doc.add_paragraph("")
     doc.add_paragraph(ud.get('name', ''))
     
     return doc
 
-# --- 9. INTERFACCIA UTENTE ---
+# --- 9. INTERFACCIA UTENTE (MAIN LOOP) ---
 
 api_key = st.text_input("🔑 Google Gemini API Key", type="password")
 
@@ -396,7 +405,7 @@ uploaded_cv = st.file_uploader("Upload CV (PDF)", type=['pdf'])
 # Tabs
 tab_job, tab_cv, tab_cl = st.tabs([f"🔎 {t['tab_job']}", f"📄 {t['tab_cv']}", f"✉️ {t['tab_cl']}"])
 
-# TAB RICERCA (Live Browsing)
+# --- TAB RICERCA (Live Browsing) ---
 with tab_job:
     if st.button(t['search_btn']):
         if not api_key:
@@ -405,18 +414,13 @@ with tab_job:
             st.warning("Inserisci Ruolo e Città")
         else:
             with st.spinner(t['searching']):
-                res, mode = search_jobs_live(api_key, role, loc, rad, st.session_state.lang_code)
-                st.session_state.job_search_results = (res, mode)
+                # Salva i risultati in session state (SOLO la lista, non oggetti complessi)
+                res = search_jobs_live(api_key, role, loc, rad, st.session_state.lang_code)
+                st.session_state.job_search_results = res
     
-    # Visualizzazione Risultati
+    # Visualizzazione Risultati persistente
     if st.session_state.job_search_results:
-        results, mode = st.session_state.job_search_results
-        
-        if mode == "SMART_FALLBACK":
-            st.warning(t['fallback_msg'])
-            st.info("💡 Suggerimento: Clicca sui link per aprire la ricerca Google pre-impostata.")
-        
-        for job in results:
+        for job in st.session_state.job_search_results:
             with st.container():
                 st.markdown(f"""
                 <div class="search-card">
@@ -426,7 +430,7 @@ with tab_job:
                 </div>
                 """, unsafe_allow_html=True)
 
-# TAB GENERAZIONE DOCUMENTI
+# --- TAB GENERAZIONE DOCUMENTI ---
 with tab_cv:
     if st.button(t['gen_btn']):
         if not api_key or not uploaded_cv:
@@ -440,20 +444,22 @@ with tab_cv:
 
     if st.session_state.generated_data:
         # Download CV
-        doc_cv = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo)
+        doc_cv = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo, st.session_state.lang_code)
         bio_cv = io.BytesIO()
         doc_cv.save(bio_cv)
         st.download_button(t['download_cv'], bio_cv.getvalue(), "CV.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         
-        # Preview JSON (Debug visivo)
-        st.json(st.session_state.generated_data['cv_content'])
+        # Preview JSON
+        with st.expander("Dati Estratti (JSON)"):
+            st.json(st.session_state.generated_data['cv_content'])
 
 with tab_cl:
     if st.session_state.generated_data:
         # Download Lettera
-        doc_cl = create_letter_docx(st.session_state.generated_data)
+        doc_cl = create_letter_docx(st.session_state.generated_data, st.session_state.lang_code)
         bio_cl = io.BytesIO()
         doc_cl.save(bio_cl)
         st.download_button(t['download_cl'], bio_cl.getvalue(), "CoverLetter.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         
+        st.markdown("### Anteprima Lettera")
         st.write(st.session_state.generated_data.get('cover_letter', ''))
