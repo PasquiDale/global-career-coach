@@ -20,11 +20,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS CUSTOM ---
+# --- 2. CSS CUSTOM (FIX MANINA + UI) ---
 st.markdown("""
 <style>
+    /* Forza cursore manina sui menu a tendina */
+    div[data-baseweb="select"] > div { cursor: pointer !important; }
+    
+    /* Forza cursore manina sui bottoni */
+    button { cursor: pointer !important; }
+    
+    /* Spaziatura container principale */
+    .main .block-container { padding-top: 2rem; }
+    
+    /* Stile bottone principale */
     div[data-testid="stFileUploader"] { margin-bottom: 1rem; }
     .stButton button { width: 100%; border-radius: 5px; font-weight: bold; background-color: #20547D; color: white; }
+    
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
@@ -70,7 +81,7 @@ SECTION_TITLES = {
 # --- 5. FUNZIONI HELPER ---
 
 def set_table_background(cell, color_hex):
-    """Imposta lo sfondo della cella (XML hacking). CRUCIALE PER IL BLU."""
+    """Imposta lo sfondo della cella (XML hacking)."""
     shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
     cell._tc.get_or_add_tcPr().append(shading_elm)
 
@@ -88,10 +99,12 @@ def add_bottom_border(paragraph):
     pPr.append(pbdr)
 
 def process_image(uploaded_file, border_width):
+    """Elabora la foto per l'anteprima e il documento."""
     if not uploaded_file: return None
     try:
         img = Image.open(uploaded_file).convert("RGB")
         if border_width > 0:
+            # Aggiunge il bordo bianco
             img = ImageOps.expand(img, border=border_width, fill='white')
         return img
     except Exception:
@@ -113,7 +126,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception:
         return ""
 
-# --- 6. CORE LOGIC: CREAZIONE CV WORD (FIX SPAZIATURA) ---
+# --- 6. CORE LOGIC: CREAZIONE CV WORD ---
 
 def create_cv_docx(json_data, photo_img, lang_code):
     doc = Document()
@@ -134,7 +147,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
     header_table.columns[0].width = Inches(1.2)  # Foto
     header_table.columns[1].width = Inches(6.1)  # Testo
     
-    # Altezza fissa header (2 pollici)
+    # Altezza fissa header
     row = header_table.rows[0]
     row.height = Inches(2.0)
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
@@ -143,7 +156,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
     for cell in row.cells:
         set_table_background(cell, "20547D")
 
-    # Cella 1: Foto (Sinistra, Centrata Verticalmente, Margini Zero)
+    # Cella 1: Foto (Sinistra, Centrata Verticalmente, No Margini)
     cell_photo = header_table.cell(0, 0)
     cell_photo.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if photo_img:
@@ -151,7 +164,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
         photo_img.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         
-        # Paragrafo Foto: Zero Margini per centratura perfetta
+        # Reset paragrafi per centratura perfetta
         p = cell_photo.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p.paragraph_format.space_before = Pt(0)
@@ -171,14 +184,14 @@ def create_cv_docx(json_data, photo_img, lang_code):
     p_info.paragraph_format.space_before = Pt(0)
     p_info.paragraph_format.space_after = Pt(0)
     
-    # Nome (Bianco)
+    # Nome
     name_run = p_info.add_run(f"{pi.get('name', '')}\n")
     name_run.font.name = 'Calibri'
     name_run.font.size = Pt(22)
     name_run.font.color.rgb = RGBColor(255, 255, 255)
     name_run.bold = True
     
-    # Dati contatto (Bianco)
+    # Contatti
     contact_text = f"{pi.get('address', '')} | {pi.get('phone', '')} | {pi.get('email', '')}\n{pi.get('linkedin', '')}"
     info_run = p_info.add_run(contact_text)
     info_run.font.name = 'Calibri'
@@ -214,15 +227,14 @@ def create_cv_docx(json_data, photo_img, lang_code):
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
-                # Reset default space
                 p.paragraph_format.space_after = Pt(0)
                 
-                # --- FIX: SPAZIO SOLO PER ESPERIENZA E EDUCAZIONE ---
+                # SPAZIO EXTRA SOLO PER ESPERIENZA ED EDUCAZIONE
                 if key in ['experience', 'education']:
-                    doc.add_paragraph("") # Riga vuota per staccare i blocchi
+                    doc.add_paragraph("") 
         else:
             p = doc.add_paragraph(str(content))
-            p.paragraph_format.space_after = Pt(6)
+            p.paragraph_format.space_after = Pt(12)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -265,7 +277,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
         p_rec = doc.add_paragraph(rec)
         p_rec.space_after = Pt(24)
 
-    # 4. OGGETTO (Grassetto)
+    # 4. OGGETTO
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
@@ -294,7 +306,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     p_close = doc.add_paragraph(closing)
     p_close.paragraph_format.keep_with_next = True
     
-    # 4 Righe vuote per la firma
+    # 4 Righe vuote
     for _ in range(4):
         p_s = doc.add_paragraph()
         p_s.paragraph_format.keep_with_next = True
@@ -319,14 +331,18 @@ with st.sidebar:
     st.title(t['sidebar_title'])
     st.markdown("---")
     
+    # Upload Foto
     uploaded_photo = st.file_uploader(t['photo_label'], type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
-    border_width = st.slider(t['border_label'], 0, 20, 0)
+    # Slider esteso a 50px
+    border_width = st.slider(t['border_label'], 0, 50, 5)
     
+    # Anteprima Foto Processata
     if uploaded_photo:
         processed_img = process_image(uploaded_photo, border_width)
         st.session_state.processed_photo = processed_img
         st.markdown(f"**{t['preview_label']}**")
-        st.image(processed_img, width=150)
+        if processed_img:
+            st.image(processed_img, width=150)
     else:
         st.session_state.processed_photo = None
 
@@ -356,7 +372,7 @@ if st.button(t['btn_label'], type="primary"):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # --- CHIAMATA AI (SENZA TOOLS) ---
+                # --- CHIAMATA AI (NO TOOLS) ---
                 model = genai.GenerativeModel("models/gemini-3-pro-preview")
                 
                 prompt = f"""
