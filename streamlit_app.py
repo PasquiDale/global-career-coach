@@ -20,22 +20,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS CUSTOM (FIX MANINA + UI) ---
+# --- 2. CSS CUSTOM ---
 st.markdown("""
 <style>
-    /* Forza cursore manina sui menu a tendina */
-    div[data-baseweb="select"] > div { cursor: pointer !important; }
-    
-    /* Forza cursore manina sui bottoni */
-    button { cursor: pointer !important; }
-    
-    /* Spaziatura container principale */
-    .main .block-container { padding-top: 2rem; }
-    
-    /* Stile bottone principale */
     div[data-testid="stFileUploader"] { margin-bottom: 1rem; }
     .stButton button { width: 100%; border-radius: 5px; font-weight: bold; background-color: #20547D; color: white; }
-    
+    div[data-baseweb="select"] > div { cursor: pointer !important; }
+    button { cursor: pointer !important; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
@@ -57,14 +48,14 @@ LANG_DISPLAY = {
 }
 
 TRANSLATIONS = {
-    'it': {'sidebar_title': 'Impostazioni Profilo', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'lang_label': 'Lingua'},
-    'en_us': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'lang_label': 'Language'},
-    'en_uk': {'sidebar_title': 'Profile Settings', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'lang_label': 'Language'},
-    'de_ch': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'step2_title': '2. Stelleninserat', 'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'lang_label': 'Sprache'},
-    'de_de': {'sidebar_title': 'Einstellungen', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'lang_label': 'Sprache'},
-    'fr': {'sidebar_title': 'Paramètres du Profil', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur', 'lang_label': 'Langue'},
-    'es': {'sidebar_title': 'Configuración', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'lang_label': 'Idioma'},
-    'pt': {'sidebar_title': 'Configurações', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro', 'lang_label': 'Idioma'}
+    'it': {'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'profile_title': 'PROFILO PERSONALE'},
+    'en_us': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE'},
+    'en_uk': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE'},
+    'de_ch': {'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stelleninserat', 'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL'},
+    'de_de': {'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL'},
+    'fr': {'sidebar_title': 'Paramètres du Profil', 'lang_label': 'Langue', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur', 'profile_title': 'PROFIL PROFESSIONNEL'},
+    'es': {'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL'},
+    'pt': {'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro', 'profile_title': 'PERFIL PROFISSIONAL'}
 }
 
 SECTION_TITLES = {
@@ -73,7 +64,7 @@ SECTION_TITLES = {
     'de_de': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'languages': 'SPRACHKENNTNISSE', 'interests': 'INTERESSEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
     'fr': {'experience': 'EXPÉRIENCE PROFESSIONNELLE', 'education': 'FORMATION', 'skills': 'COMPÉTENCES', 'languages': 'LANGUES', 'interests': 'CENTRES D\'INTÉRÊT', 'personal_info': 'INFORMATIONS PERSONNELLES', 'profile_summary': 'PROFIL PROFESSIONNEL'},
     'en_us': {'experience': 'PROFESSIONAL EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL SUMMARY'},
-    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL SUMMARY'},
+    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFESSIONAL PROFILE'},
     'es': {'experience': 'EXPERIENCIA LABORAL', 'education': 'EDUCACIÓN', 'skills': 'HABILIDADES', 'languages': 'IDIOMAS', 'interests': 'INTERESES', 'personal_info': 'DATOS PERSONALES', 'profile_summary': 'PERFIL PROFESIONAL'},
     'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'languages': 'IDIOMAS', 'interests': 'INTERESSES', 'personal_info': 'DADOS PESSOAIS', 'profile_summary': 'PERFIL PROFISSIONAL'}
 }
@@ -99,12 +90,10 @@ def add_bottom_border(paragraph):
     pPr.append(pbdr)
 
 def process_image(uploaded_file, border_width):
-    """Elabora la foto per l'anteprima e il documento."""
     if not uploaded_file: return None
     try:
         img = Image.open(uploaded_file).convert("RGB")
         if border_width > 0:
-            # Aggiunge il bordo bianco
             img = ImageOps.expand(img, border=border_width, fill='white')
         return img
     except Exception:
@@ -164,7 +153,6 @@ def create_cv_docx(json_data, photo_img, lang_code):
         photo_img.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         
-        # Reset paragrafi per centratura perfetta
         p = cell_photo.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p.paragraph_format.space_before = Pt(0)
@@ -223,11 +211,11 @@ def create_cv_docx(json_data, photo_img, lang_code):
         h.space_before = Pt(12)
         h.space_after = Pt(6)
         
-        # Contenuto
+        # Contenuto (SPAZIATURA)
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
-                p.paragraph_format.space_after = Pt(0)
+                p.paragraph_format.space_after = Pt(0) # Reset
                 
                 # SPAZIO EXTRA SOLO PER ESPERIENZA ED EDUCAZIONE
                 if key in ['experience', 'education']:
@@ -320,46 +308,114 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     buffer.seek(0)
     return buffer
 
-# --- 8. UI PRINCIPALE ---
+# --- 8. AI LOGIC (No Tools) ---
+def get_gemini_response(pdf_text, job_text, lang_code):
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel("models/gemini-3-pro-preview")
+        
+        prompt = f"""
+        Act as an expert HR Resume Writer.
+        Target Language: {lang_code}.
+        
+        INPUT:
+        1. RESUME TEXT: {pdf_text[:30000]}
+        2. JOB DESCRIPTION: {job_text}
+        
+        TASK:
+        Generate a structured JSON.
+        
+        MANDATORY JSON STRUCTURE:
+        {{
+            "personal_info": {{ "name": "...", "address": "...", "phone": "...", "email": "...", "linkedin": "..." }},
+            "cv_sections": {{
+                "profile_summary": "...",
+                "experience": ["Role | Company | Date ... description...", "Role 2..."],
+                "education": ["Degree..."],
+                "skills": ["Skill 1", "Skill 2..."],
+                "languages": ["Lang 1..."],
+                "interests": ["Int..."]
+            }},
+            "letter_data": {{
+                "recipient_block": "Address...",
+                "subject_line": "Subject...",
+                "body_content": "Text...",
+                "closing": "Regards"
+            }}
+        }}
+        
+        RULES:
+        - Output strict JSON.
+        - NO candidate name in 'closing'.
+        - 'experience' MUST be a list of strings.
+        """
+        response = model.generate_content([prompt])
+        return response.text
+    except Exception as e:
+        return str(e)
 
-# Sidebar
+# --- 9. MAIN APP LOOP (Menu Dinamico) ---
+
 with st.sidebar:
-    lang_sel = st.selectbox("Language / Lingua", list(LANG_DISPLAY.keys()))
-    st.session_state.lang_code = LANG_DISPLAY[lang_sel]
-    t = TRANSLATIONS[st.session_state.lang_code]
+    # Recupera il codice lingua attuale
+    current_code = st.session_state['lang_code']
+    
+    # Recupera le opzioni disponibili (nomi estesi)
+    options = list(LANG_DISPLAY.keys())
+    
+    # Trova il nome esteso corrispondente al codice attuale per settare l'index
+    # (Se non trovato, default a 0)
+    try:
+        current_name = [k for k, v in LANG_DISPLAY.items() if v == current_code][0]
+        idx = options.index(current_name)
+    except:
+        idx = 0
+
+    # Recupera l'etichetta tradotta per "Lingua"
+    label_text = TRANSLATIONS[current_code]['lang_label']
+
+    # Selectbox dinamica
+    selected_name = st.selectbox(label_text, options, index=idx)
+    
+    # Aggiorna lo stato se cambiato
+    new_code = LANG_DISPLAY[selected_name]
+    if new_code != current_code:
+        st.session_state['lang_code'] = new_code
+        st.rerun()
+
+    # Carica traduzioni aggiornate
+    t = TRANSLATIONS[st.session_state['lang_code']]
     
     st.title(t['sidebar_title'])
     st.markdown("---")
     
-    # Upload Foto
     uploaded_photo = st.file_uploader(t['photo_label'], type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
-    # Slider esteso a 50px
     border_width = st.slider(t['border_label'], 0, 50, 5)
     
-    # Anteprima Foto Processata
     if uploaded_photo:
         processed_img = process_image(uploaded_photo, border_width)
-        st.session_state.processed_photo = processed_img
+        st.session_state['processed_photo'] = processed_img
         st.markdown(f"**{t['preview_label']}**")
         if processed_img:
             st.image(processed_img, width=150)
     else:
-        st.session_state.processed_photo = None
+        st.session_state['processed_photo'] = None
 
-# Main
+# Main Content
+t = TRANSLATIONS[st.session_state['lang_code']]
 st.title(t['main_title'])
 
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-except Exception:
-    st.error("🚨 API Key mancante nei Secrets!")
+except:
+    st.error("API Key mancante.")
     st.stop()
 
 col1, col2 = st.columns([1, 1])
 with col1:
     st.subheader(t['step1_title'])
-    uploaded_cv = st.file_uploader(t['step1_title'], type=['pdf'], label_visibility="collapsed")
+    uploaded_cv = st.file_uploader(t['step1_title'], type=['pdf'], label_visibility='collapsed', help=t['upload_help'], key="main_pdf_uploader")
+
 with col2:
     st.subheader(t['step2_title'])
     job_desc = st.text_area(t['step2_title'], height=200, placeholder=t['job_placeholder'], label_visibility="collapsed")
@@ -371,80 +427,36 @@ if st.button(t['btn_label'], type="primary"):
         with st.spinner(t['spinner_msg']):
             try:
                 cv_text = extract_text_from_pdf(uploaded_cv)
+                json_str = get_gemini_response(cv_text, job_desc, st.session_state['lang_code'])
                 
-                # --- CHIAMATA AI (NO TOOLS) ---
-                model = genai.GenerativeModel("models/gemini-3-pro-preview")
-                
-                prompt = f"""
-                Act as an expert HR Resume Writer.
-                Target Language: {lang_sel} ({st.session_state.lang_code}).
-                
-                INPUT:
-                1. RESUME TEXT: {cv_text[:30000]}
-                2. JOB DESCRIPTION: {job_desc}
-                
-                TASK:
-                Generate a structured JSON.
-                
-                MANDATORY JSON STRUCTURE:
-                {{
-                    "personal_info": {{ "name": "...", "address": "...", "phone": "...", "email": "...", "linkedin": "..." }},
-                    "cv_sections": {{
-                        "profile_summary": "Short summary...",
-                        "experience": ["Role | Company | Date ... description...", "Role 2..."],
-                        "education": ["Degree..."],
-                        "skills": ["Skill 1", "Skill 2..."],
-                        "languages": ["Lang 1..."],
-                        "interests": ["Interest 1..."]
-                    }},
-                    "letter_data": {{
-                        "recipient_block": "Company Name\\nAddress",
-                        "subject_line": "Subject...",
-                        "body_content": "Letter body...",
-                        "closing": "Greeting ONLY (e.g. Freundliche Grüsse)"
-                    }}
-                }}
-                
-                RULES:
-                - Output strict JSON.
-                - NO candidate name in 'closing'.
-                - 'experience' MUST be a list of strings.
-                """
-                
-                response = model.generate_content(prompt)
-                
-                json_str = response.text.strip()
-                if json_str.startswith("```json"):
-                    json_str = json_str[7:-3]
-                
+                json_str = json_str.replace("```json", "").replace("```", "")
                 data = json.loads(json_str)
-                st.session_state.generated_data = data
+                st.session_state['generated_data'] = data
                 st.success(t['success'])
-                
             except Exception as e:
                 st.error(f"{t['error']}: {str(e)}")
 
-if st.session_state.generated_data:
-    data = st.session_state.generated_data
-    tabs = st.tabs([t['tab_cv'], t['tab_letter']])
+if st.session_state['generated_data']:
+    data = st.session_state['generated_data']
+    tab1, tab2 = st.tabs([t['tab_cv'], t['tab_letter']])
     
-    with tabs[0]:
-        docx_cv = create_cv_docx(data, st.session_state.processed_photo, st.session_state.lang_code)
+    with tab1:
+        docx_cv = create_cv_docx(data, st.session_state['processed_photo'], st.session_state['lang_code'])
         st.download_button(
             label=t['down_cv'],
             data=docx_cv,
-            file_name=f"CV_Optimized.docx",
+            file_name="CV_Optimized.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         st.json(data['cv_sections'])
 
     with tabs[1]:
         candidate_name = data['personal_info'].get('name', 'Candidate')
-        docx_let = create_letter_docx(data, st.session_state.lang_code, candidate_name)
+        docx_let = create_letter_docx(data['letter_data'], data['personal_info'], st.session_state['lang_code'])
         st.download_button(
             label=t['down_let'],
             data=docx_let,
-            file_name=f"Cover_Letter.docx",
+            file_name="Cover_Letter.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         st.write(data['letter_data'])
