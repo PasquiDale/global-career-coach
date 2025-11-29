@@ -28,7 +28,9 @@ st.markdown("""
         margin-bottom: 10px; 
         border-left: 5px solid #20547D; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
     }
+    .job-card:hover { transform: translateY(-2px); }
     .job-card h4 { margin-top: 0; color: #20547D; margin-bottom: 5px; }
     .job-link { 
         text-decoration: none; 
@@ -71,9 +73,9 @@ TRANSLATIONS = {
     'fr': {'sidebar_title': 'Paramètres du Profil', 'lang_label': 'Langue', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte de l\'offre ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur', 'profile_title': 'PROFIL PROFESSIONNEL',
            'search_role': 'Quel emploi ?', 'search_loc': 'Où ?', 'search_rad': 'Rayon (km)', 'search_btn': 'Trouver Emplois 🔎', 'search_res_title': 'Emplois trouvés :', 'search_info': 'Voici quelques opportunités. Cliquez sur le bouton pour chercher sur Google Jobs.', 'no_jobs': 'Aucun emploi trouvé.', 'upload_first': '⚠️ Chargez d\'abord le CV!', 'search_head': 'Recherche d\'emploi', 'search_hint': 'Chargez Photo et CV pour activer la recherche'},
     'es': {'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL',
-           'search_role': '¿Qué trabajo?', 'search_loc': '¿Dónde?', 'search_rad': 'Radio (km)', 'search_btn': 'Buscar Empleos 🔎', 'search_res_title': 'Empleos encontrados:', 'search_info': 'Aquí hay oportunidades. Haz clic en el botón para buscar en Google Jobs.', 'no_jobs': 'No se encontraron empleos.', 'upload_first': '⚠️ ¡Sube el CV primero!', 'search_head': 'Búsqueda de empleo', 'search_hint': 'Sube Foto y CV para activar la búsqueda'},
+           'search_role': '¿Qué trabajo?', 'search_loc': '¿Dónde?', 'search_rad': 'Radio (km)', 'search_btn': 'Buscar Empleos 🔎', 'search_res_title': 'Empleos encontrados:', 'search_info': 'Aquí hay oportunidades. Haz clic en el enlace para ver en Google.', 'no_jobs': 'No se encontraron empleos.', 'upload_first': '⚠️ ¡Sube el CV primero!', 'search_head': 'Búsqueda de empleo', 'search_hint': 'Sube Foto y CV para activar la búsqueda'},
     'pt': {'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro', 'profile_title': 'PERFIL PROFISSIONAL',
-           'search_role': 'Qual trabalho?', 'search_loc': 'Onde?', 'search_rad': 'Raio (km)', 'search_btn': 'Buscar Empregos 🔎', 'search_res_title': 'Empregos encontrados:', 'search_info': 'Aqui estão algumas oportunidades. Clique no botão para buscar no Google Jobs.', 'no_jobs': 'Nenhum emprego encontrado.', 'upload_first': '⚠️ Carregue o CV primeiro!', 'search_head': 'Busca de emprego', 'search_hint': 'Carregue Foto e CV para ativar a busca'},
+           'search_role': 'Qual trabalho?', 'search_loc': 'Onde?', 'search_rad': 'Raio (km)', 'search_btn': 'Buscar Empregos 🔎', 'search_res_title': 'Empregos encontrados:', 'search_info': 'Aqui estão algumas oportunidades. Clique no link para ver no Google.', 'no_jobs': 'Nenhum emprego encontrado.', 'upload_first': '⚠️ Carregue o CV primeiro!', 'search_head': 'Busca de emprego', 'search_hint': 'Carregue Foto e CV para ativar a busca'},
     'en_uk': {'sidebar_title': 'Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE',
               'search_role': 'Job Title', 'search_loc': 'Location', 'search_rad': 'Radius (km)', 'search_btn': 'Find Jobs 🔎', 'search_res_title': 'Found Jobs:', 'search_info': 'Here are some opportunities. Click the button to search on Google Jobs.', 'no_jobs': 'No jobs found.', 'upload_first': '⚠️ Upload CV first!', 'search_head': 'Job Search', 'search_hint': 'Upload Photo and CV to enable search'}
 }
@@ -304,18 +306,18 @@ def create_letter_docx(data, lang_code):
     buffer.seek(0)
     return buffer
 
-# --- 8. FUNZIONE JOB SEARCH (SMART - NO AI TOOLS) ---
+# --- 8. FUNZIONE JOB SEARCH (SMART LINK STRATEGY) ---
 def search_jobs_smart(role, location, radius, lang):
     """
-    Usa Gemini 1.5 Pro per trovare Nomi Aziende/Ruoli, poi PYTHON crea i link Google.
-    ZERO TOOLS = ZERO ERRORI DI CHIAVE API.
+    Usa modelli più leggeri/stabili per la ricerca concettuale.
+    Python crea i link.
     """
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
         
-        # Modello 1.5 Pro (Molto intelligente per trovare aziende, senza tools)
-        model = genai.GenerativeModel("models/gemini-1.5-pro")
+        # Modello Flash per velocità nella ricerca
+        model = genai.GenerativeModel("models/gemini-2.0-flash")
         
         prompt = f"""
         Act as a Recruiter in {lang}.
@@ -332,24 +334,19 @@ def search_jobs_smart(role, location, radius, lang):
         response = model.generate_content(prompt)
         text = response.text
         
-        # Pulizia JSON
         if "```json" in text: text = text.split("```json")[1].split("```")[0]
         elif "```" in text: text = text.split("```")[1].split("```")[0]
         
         data = json.loads(text)
         
-        # PYTHON LINK GENERATOR (Infallibile)
         for item in data:
-            # Query di ricerca ottimizzata per Google Jobs
             query = f"{item['role_title']} {item['company']} {location} jobs"
             safe_query = urllib.parse.quote(query)
-            # Link magico che apre l'interfaccia "Google Jobs"
             item['link'] = f"https://www.google.com/search?q={safe_query}&ibp=htl;jobs"
             
         return data
         
     except Exception as e:
-        st.error(f"Search Error: {e}")
         return []
 
 # --- 9. FUNZIONE AI GENERATIVA (GEMINI 3 PRO PREVIEW) ---
@@ -358,6 +355,7 @@ def generate_docs_ai(pdf_text, job_desc, lang_code):
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
         
+        # Modello Potente per la scrittura
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         
         prompt = f"""
@@ -431,7 +429,6 @@ with st.sidebar:
     search_rad = st.slider(t['search_rad'], 10, 100, 25)
     
     if st.button(t['search_btn']):
-        # CONTROLLO CV CARICATO
         if st.session_state.get('cv_text_content'):
             with st.spinner("Searching..."):
                 results = search_jobs_smart(search_role, search_loc, search_rad, st.session_state['lang_code'])
@@ -449,11 +446,10 @@ if st.session_state['job_search_results']:
     st.subheader(t['search_res_title'])
     if len(st.session_state['job_search_results']) > 0:
         for job in st.session_state['job_search_results']:
-            # Card Risultato
             st.markdown(f"""
             <div class="job-card">
                 <h4>{job.get('role_title', 'Job')} @ {job.get('company', 'Company')}</h4>
-                <p>Portal: {job.get('portal', 'Job Board')}</p>
+                <p>Portal: {job.get('portal', 'Web')}</p>
                 <a href="{job.get('link', '#')}" target="_blank" class="job-link">
                     {t['search_btn']} (Google Jobs) 
                 </a>
