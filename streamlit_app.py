@@ -16,6 +16,7 @@ from PIL import Image, ImageOps
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
     page_title="Global Career Coach",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -38,7 +39,7 @@ st.markdown("""
         transition: transform 0.2s;
     }
     .search-card:hover {
-        transform: scale(1.02);
+        transform: scale(1.01);
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     a { text-decoration: none; font-weight: bold; color: #0066cc; }
@@ -54,6 +55,8 @@ if 'processed_photo' not in st.session_state:
     st.session_state.processed_photo = None
 if 'job_search_results' not in st.session_state:
     st.session_state.job_search_results = None
+if 'pdf_ref' not in st.session_state:
+    st.session_state.pdf_ref = None
 
 # --- 4. COSTANTI E DIZIONARI ---
 LANG_DISPLAY = {
@@ -63,31 +66,37 @@ LANG_DISPLAY = {
 
 TRANSLATIONS = {
     "it": {
-        "title": "Global Career Coach", "role_in": "Ruolo Target", "loc_in": "Città/Regione",
-        "rad_in": "Raggio (km)", "search_btn": "🔎 Cerca Lavoro (Live)", 
-        "gen_btn": "✨ Genera Documenti", "tab_cv": "Curriculum", "tab_cl": "Lettera", "tab_job": "Offerte",
-        "missing_key": "Chiave API mancante", "missing_data": "Carica PDF e compila i campi",
-        "processing": "Analisi in corso...", "searching": "Scansione del web...",
-        "fallback_msg": "Ricerca Live non disponibile. Generazione Smart Links.",
-        "download_cv": "Scarica CV (.docx)", "download_cl": "Scarica Lettera (.docx)"
+        "title": "Global Career Coach", 
+        "sb_photo": "Foto Profilo", "sb_job": "Ricerca Lavoro",
+        "role_in": "Ruolo Target", "loc_in": "Città/Regione", "rad_in": "Raggio (km)", 
+        "search_btn": "🔎 Cerca Offerte", "upload_first": "⚠️ Carica prima il tuo CV nel pannello principale!",
+        "main_upload": "1. Carica il tuo CV (PDF)", "main_results": "2. Risultati Ricerca",
+        "main_gen": "3. Generazione Documenti", "job_desc_in": "Incolla qui l'Annuncio di Lavoro",
+        "gen_btn": "✨ Genera CV e Lettera",
+        "download_cv": "Scarica CV (.docx)", "download_cl": "Scarica Lettera (.docx)",
+        "missing_key": "Chiave API mancante", "processing": "Elaborazione in corso...", "searching": "Ricerca live su Google..."
     },
     "en": {
-        "title": "Global Career Coach", "role_in": "Target Role", "loc_in": "City/Region",
-        "rad_in": "Radius (km)", "search_btn": "🔎 Search Jobs (Live)", 
-        "gen_btn": "✨ Generate Docs", "tab_cv": "Resume", "tab_cl": "Cover Letter", "tab_job": "Jobs",
-        "missing_key": "Missing API Key", "missing_data": "Upload PDF and fill fields",
-        "processing": "Processing...", "searching": "Scanning the web...",
-        "fallback_msg": "Live Search unavailable. Generating Smart Links.",
-        "download_cv": "Download CV (.docx)", "download_cl": "Download Letter (.docx)"
+        "title": "Global Career Coach", 
+        "sb_photo": "Profile Photo", "sb_job": "Job Search",
+        "role_in": "Target Role", "loc_in": "City/Region", "rad_in": "Radius (km)", 
+        "search_btn": "🔎 Search Jobs", "upload_first": "⚠️ Upload your CV in the main panel first!",
+        "main_upload": "1. Upload your CV (PDF)", "main_results": "2. Search Results",
+        "main_gen": "3. Document Generation", "job_desc_in": "Paste Job Description here",
+        "gen_btn": "✨ Generate Docs",
+        "download_cv": "Download CV (.docx)", "download_cl": "Download Letter (.docx)",
+        "missing_key": "Missing API Key", "processing": "Processing...", "searching": "Live Google search..."
     },
     "de": {
-        "title": "Global Career Coach", "role_in": "Zielposition", "loc_in": "Stadt/Region",
-        "rad_in": "Radius (km)", "search_btn": "🔎 Jobsuche (Live)", 
-        "gen_btn": "✨ Dokumente Erstellen", "tab_cv": "Lebenslauf", "tab_cl": "Anschreiben", "tab_job": "Jobs",
-        "missing_key": "API Key fehlt", "missing_data": "PDF hochladen und Felder ausfüllen",
-        "processing": "Verarbeitung...", "searching": "Web-Scan läuft...",
-        "fallback_msg": "Live-Suche nicht verfügbar. Erstelle Smart Links.",
-        "download_cv": "CV Herunterladen (.docx)", "download_cl": "Anschreiben Herunterladen (.docx)"
+        "title": "Global Career Coach", 
+        "sb_photo": "Profilbild", "sb_job": "Jobsuche",
+        "role_in": "Zielposition", "loc_in": "Stadt/Region", "rad_in": "Radius (km)", 
+        "search_btn": "🔎 Jobs suchen", "upload_first": "⚠️ Bitte laden Sie zuerst Ihren Lebenslauf hoch!",
+        "main_upload": "1. Lebenslauf hochladen (PDF)", "main_results": "2. Suchergebnisse",
+        "main_gen": "3. Dokumentenerstellung", "job_desc_in": "Stellenanzeige hier einfügen",
+        "gen_btn": "✨ Dokumente erstellen",
+        "download_cv": "CV herunterladen (.docx)", "download_cl": "Anschreiben herunterladen (.docx)",
+        "missing_key": "API Key fehlt", "processing": "Verarbeitung...", "searching": "Live-Suche auf Google..."
     }
 }
 
@@ -148,19 +157,22 @@ def extract_text_from_pdf(file):
     except:
         return ""
 
-# --- 6. FUNZIONE SEARCH JOBS (LIVE + FALLBACK) ---
+# --- 6. FUNZIONI AI CORE ---
 
 def search_jobs_live(api_key, role, location, radius, lang):
+    """
+    Esegue SOLO la ricerca live con Google Search Retrieval.
+    Nessuna allucinazione o link inventati.
+    """
     genai.configure(api_key=api_key)
     
-    # TENTATIVO 1: LIVE SEARCH CON GEMINI 2.0 FLASH
     try:
-        # Sintassi ufficiale per Search Retrieval
+        # Configurazione Tool Ricerca
         tools = [{'google_search_retrieval': {}}]
         model = genai.GenerativeModel("models/gemini-2.0-flash", tools=tools)
         
         prompt = f"""
-        Find 5 ACTIVE job postings for the role '{role}' in '{location}' (within {radius} km).
+        Find 5 ACTIVE and REAL job postings for the role '{role}' in '{location}' (radius {radius} km).
         Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}.
         Language: {lang}.
         
@@ -168,87 +180,39 @@ def search_jobs_live(api_key, role, location, radius, lang):
         [
             {{
                 "company": "Company Name",
-                "role_title": "Exact Role Title",
-                "link": "THE_REAL_URL_FOUND",
-                "snippet": "Brief description"
+                "role_title": "Role Title",
+                "link": "REAL_URL_ONLY",
+                "snippet": "Short description"
             }}
         ]
-        Verify that the links are real job postings if possible.
-        Only return the JSON list, no text.
+        IMPORTANT: verify links are real. If no active jobs found, return empty list [].
         """
         
         response = model.generate_content(prompt)
-        # Se la risposta non contiene parti di testo valide o tool use fallito
-        if not response.text:
-            raise Exception("Empty response from Search Tool")
-            
-        json_str = clean_json_string(response.text)
-        results = json.loads(json_str)
+        if not response.text: return []
         
-        # Validazione minima
-        if not results:
-            raise Exception("No results found via Live Search")
-            
-        return results
+        json_str = clean_json_string(response.text)
+        return json.loads(json_str)
 
     except Exception as e:
-        # TENTATIVO 2: FALLBACK (SMART LINKS)
-        st.warning(f"Live Search unavailable ({str(e)}). Using Smart Search.")
-        
-        try:
-            # Modello standard senza tools per generare solo nomi
-            model_fallback = genai.GenerativeModel("models/gemini-2.0-flash")
-            
-            fallback_prompt = f"""
-            Identify 5 companies in '{location}' that typically hire for '{role}'.
-            Return a JSON list:
-            [
-                {{ "company": "Company Name", "role_title": "{role}" }}
-            ]
-            """
-            
-            resp = model_fallback.generate_content(fallback_prompt)
-            data = json.loads(clean_json_string(resp.text))
-            
-            smart_results = []
-            for item in data:
-                comp = item.get('company', 'Unknown')
-                title = item.get('role_title', role)
-                # Costruzione manuale link Google Search
-                query = f"jobs {title} at {comp} {location}"
-                encoded_query = urllib.parse.quote(query)
-                smart_link = f"https://www.google.com/search?q={encoded_query}"
-                
-                smart_results.append({
-                    "company": comp,
-                    "role_title": title,
-                    "link": smart_link,
-                    "snippet": "Smart Search Link generated by AI"
-                })
-            
-            return smart_results
-            
-        except Exception as e2:
-            st.error(f"Search failed completely: {e2}")
-            return []
+        st.error(f"Search Error: {str(e)}")
+        return []
 
-# --- 7. FUNZIONE GENERAZIONE DOCUMENTI ---
-
-def generate_docs_ai(api_key, cv_text, role, location, lang):
+def generate_docs_ai(api_key, cv_text, job_desc, lang):
     genai.configure(api_key=api_key)
-    # Usiamo 3.0 Pro per la scrittura di qualità
+    # Usiamo Gemini 3 Pro per la scrittura (No Tools)
     model = genai.GenerativeModel("models/gemini-3-pro-preview")
     
     prompt = f"""
-    Role: Career Coach. Language: {lang}.
-    Target Role: {role} in {location}.
-    
-    Input CV: {cv_text[:10000]}
+    Role: Professional Career Coach. Language: {lang}.
     
     Task:
-    1. Extract User Data (Name, Email, Phone, Address).
-    2. Rewrite CV body (Professional summary, Experience, Education, Skills). Make it action-oriented.
-    3. Write a Cover Letter for the target role.
+    1. Extract User Data from CV (Name, Email, Phone, Address).
+    2. Rewrite CV (Professional summary, Experience, Education, Skills) to match the Job Description. Use action verbs.
+    3. Write a tailored Cover Letter for the Job Description.
+    
+    Input CV: {cv_text[:15000]}
+    Job Description: {job_desc[:5000]}
     
     Return JSON:
     {{
@@ -266,19 +230,18 @@ def generate_docs_ai(api_key, cv_text, role, location, lang):
     response = model.generate_content(prompt)
     return json.loads(clean_json_string(response.text))
 
-# --- 8. FUNZIONI DOCX (CONGELATE) ---
+# --- 7. FUNZIONI DOCX (CONGELATE) ---
 
 def create_cv_docx(data, photo_bytes, lang_code='it'):
     doc = Document()
     
-    # Header Blu #20547D (Tabella 1x2)
+    # Header Blu
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    table.columns[0].width = Inches(1.5) # Foto
-    table.columns[1].width = Inches(5.0) # Testo
+    table.columns[0].width = Inches(1.5)
+    table.columns[1].width = Inches(5.0)
     
     row = table.rows[0]
-    # Set altezza minima header
     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     row.height = Inches(2.0)
     
@@ -288,7 +251,6 @@ def create_cv_docx(data, photo_bytes, lang_code='it'):
     set_table_background(cell_photo, "20547D")
     set_table_background(cell_info, "20547D")
     
-    # Foto
     if photo_bytes:
         try:
             p = cell_photo.paragraphs[0]
@@ -297,7 +259,6 @@ def create_cv_docx(data, photo_bytes, lang_code='it'):
             run.add_picture(io.BytesIO(photo_bytes), width=Inches(1.2))
         except: pass
         
-    # Info Testo
     ud = data.get('user_data', {})
     p = cell_info.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -333,7 +294,7 @@ def create_cv_docx(data, photo_bytes, lang_code='it'):
         run.bold = True
         doc.add_paragraph(f"{exp.get('period')}")
         doc.add_paragraph(exp.get('details'))
-        doc.add_paragraph("") # Spazio
+        doc.add_paragraph("")
         
     # Skills
     h = doc.add_heading(titles['skill'], level=1)
@@ -351,17 +312,14 @@ def create_letter_docx(data, lang_code='it'):
     doc = Document()
     ud = data.get('user_data', {})
     
-    # Intestazione
     doc.add_paragraph(ud.get('name', ''))
     doc.add_paragraph(ud.get('email', ''))
     doc.add_paragraph(ud.get('phone', ''))
     doc.add_paragraph(get_todays_date(lang_code))
     doc.add_paragraph("")
     
-    # Corpo
     doc.add_paragraph(data.get('cover_letter', ''))
     
-    # Firma
     doc.add_paragraph("")
     doc.add_paragraph("Cordiali Saluti,")
     doc.add_paragraph("")
@@ -369,57 +327,68 @@ def create_letter_docx(data, lang_code='it'):
     
     return doc
 
-# --- 9. INTERFACCIA UTENTE (MAIN LOOP) ---
+# --- 11. MAIN LOOP ---
 
 api_key = st.text_input("🔑 Google Gemini API Key", type="password")
 
-# Sidebar
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("Impostazioni")
     lang_sel = st.selectbox("Lingua", list(LANG_DISPLAY.keys()))
     st.session_state.lang_code = LANG_DISPLAY[lang_sel]
     t = TRANSLATIONS[st.session_state.lang_code if st.session_state.lang_code in TRANSLATIONS else 'en']
     
-    st.subheader("Foto")
+    st.divider()
+    st.subheader(f"📸 {t['sb_photo']}")
     u_photo = st.file_uploader("Upload Foto", type=['jpg','png'])
     border = st.slider("Bordo", 0, 10, 2)
     if u_photo:
         processed = process_image(u_photo, border)
         st.session_state.processed_photo = processed.getvalue()
         st.image(processed, caption="Anteprima")
-
-# Main
-st.title(t['title'])
-
-# Input Dati
-col1, col2, col3 = st.columns([2, 1, 1])
-with col1:
-    role = st.text_input(t['role_in'])
-with col2:
-    loc = st.text_input(t['loc_in'])
-with col3:
-    rad = st.number_input(t['rad_in'], value=50)
-
-uploaded_cv = st.file_uploader("Upload CV (PDF)", type=['pdf'])
-
-# Tabs
-tab_job, tab_cv, tab_cl = st.tabs([f"🔎 {t['tab_job']}", f"📄 {t['tab_cv']}", f"✉️ {t['tab_cl']}"])
-
-# --- TAB RICERCA (Live Browsing) ---
-with tab_job:
+        
+    st.divider()
+    st.subheader(f"💼 {t['sb_job']}")
+    s_role = st.text_input(t['role_in'])
+    s_loc = st.text_input(t['loc_in'])
+    s_rad = st.slider(t['rad_in'], 10, 100, 50)
+    
+    # BOTTONE RICERCA (BLOCCO SICUREZZA)
     if st.button(t['search_btn']):
-        if not api_key:
+        if not st.session_state.pdf_ref:
+            st.error(t['upload_first']) # BLOCCA SE NO PDF
+        elif not api_key:
             st.error(t['missing_key'])
-        elif not role or not loc:
+        elif not s_role or not s_loc:
             st.warning("Inserisci Ruolo e Città")
         else:
             with st.spinner(t['searching']):
-                # Salva i risultati in session state (SOLO la lista, non oggetti complessi)
-                res = search_jobs_live(api_key, role, loc, rad, st.session_state.lang_code)
+                res = search_jobs_live(api_key, s_role, s_loc, s_rad, st.session_state.lang_code)
                 st.session_state.job_search_results = res
+
+# --- MAIN PAGE ---
+st.title(t['title'])
+
+# SEZIONE 1: UPLOAD CV (OBBLIGATORIO)
+st.subheader(t['main_upload'])
+uploaded_cv = st.file_uploader("Upload CV", type=['pdf'], label_visibility="collapsed")
+
+if uploaded_cv:
+    st.session_state.pdf_ref = uploaded_cv # SALVA RIFERIMENTO PDF
+    st.success("✅ PDF Caricato")
+else:
+    st.session_state.pdf_ref = None
+    st.info("Carica il tuo CV per abilitare la ricerca lavoro.")
+
+st.divider()
+
+# SEZIONE 2: RISULTATI RICERCA (SOLO SE PRESENTI)
+if st.session_state.job_search_results:
+    st.subheader(t['main_results'])
     
-    # Visualizzazione Risultati persistente
-    if st.session_state.job_search_results:
+    if len(st.session_state.job_search_results) == 0:
+        st.warning("Nessuna offerta trovata.")
+    else:
         for job in st.session_state.job_search_results:
             with st.container():
                 st.markdown(f"""
@@ -429,37 +398,48 @@ with tab_job:
                     <a href="{job.get('link', '#')}" target="_blank">🔗 VAI ALL'OFFERTA</a>
                 </div>
                 """, unsafe_allow_html=True)
+    st.divider()
 
-# --- TAB GENERAZIONE DOCUMENTI ---
-with tab_cv:
-    if st.button(t['gen_btn']):
-        if not api_key or not uploaded_cv:
-            st.error(t['missing_data'])
-        else:
-            with st.spinner(t['processing']):
-                cv_text = extract_text_from_pdf(uploaded_cv)
-                data = generate_docs_ai(api_key, cv_text, role, loc, st.session_state.lang_code)
-                st.session_state.generated_data = data
-                st.success("OK!")
+# SEZIONE 3: GENERAZIONE DOCUMENTI
+st.subheader(t['main_gen'])
+job_desc_text = st.text_area(t['job_desc_in'], height=200)
 
-    if st.session_state.generated_data:
-        # Download CV
-        doc_cv = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo, st.session_state.lang_code)
-        bio_cv = io.BytesIO()
-        doc_cv.save(bio_cv)
-        st.download_button(t['download_cv'], bio_cv.getvalue(), "CV.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+if st.button(t['gen_btn']):
+    if not api_key or not uploaded_cv or not job_desc_text:
+        st.error(t['missing_data'])
+    else:
+        with st.spinner(t['processing']):
+            cv_text = extract_text_from_pdf(uploaded_cv)
+            data = generate_docs_ai(api_key, cv_text, job_desc_text, st.session_state.lang_code)
+            st.session_state.generated_data = data
+            st.success("Documenti pronti!")
+
+# DOWNLOAD AREA
+if st.session_state.generated_data:
+    col_d1, col_d2 = st.columns(2)
+    
+    # Docx CV
+    doc_cv = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo, st.session_state.lang_code)
+    bio_cv = io.BytesIO()
+    doc_cv.save(bio_cv)
+    
+    with col_d1:
+        st.download_button(
+            t['download_cv'], 
+            bio_cv.getvalue(), 
+            "CV_Optimized.docx", 
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
         
-        # Preview JSON
-        with st.expander("Dati Estratti (JSON)"):
-            st.json(st.session_state.generated_data['cv_content'])
-
-with tab_cl:
-    if st.session_state.generated_data:
-        # Download Lettera
-        doc_cl = create_letter_docx(st.session_state.generated_data, st.session_state.lang_code)
-        bio_cl = io.BytesIO()
-        doc_cl.save(bio_cl)
-        st.download_button(t['download_cl'], bio_cl.getvalue(), "CoverLetter.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        
-        st.markdown("### Anteprima Lettera")
-        st.write(st.session_state.generated_data.get('cover_letter', ''))
+    # Docx Lettera
+    doc_cl = create_letter_docx(st.session_state.generated_data, st.session_state.lang_code)
+    bio_cl = io.BytesIO()
+    doc_cl.save(bio_cl)
+    
+    with col_d2:
+        st.download_button(
+            t['download_cl'], 
+            bio_cl.getvalue(), 
+            "CoverLetter.docx", 
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
