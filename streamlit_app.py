@@ -113,7 +113,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception:
         return ""
 
-# --- 6. CORE LOGIC: CREAZIONE CV WORD ---
+# --- 6. CORE LOGIC: CREAZIONE CV WORD (FIX SPAZIATURA) ---
 
 def create_cv_docx(json_data, photo_img, lang_code):
     doc = Document()
@@ -151,6 +151,7 @@ def create_cv_docx(json_data, photo_img, lang_code):
         photo_img.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         
+        # Paragrafo Foto: Zero Margini per centratura perfetta
         p = cell_photo.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p.paragraph_format.space_before = Pt(0)
@@ -209,15 +210,19 @@ def create_cv_docx(json_data, photo_img, lang_code):
         h.space_before = Pt(12)
         h.space_after = Pt(6)
         
-        # Contenuto (SPAZIATURA MIGLIORATA)
+        # Contenuto
         if isinstance(content, list):
             for item in content:
                 p = doc.add_paragraph(str(item), style='List Bullet')
-                # SPAZIO TRA I PUNTI (Richiesto)
-                p.paragraph_format.space_after = Pt(12) 
+                # Reset default space
+                p.paragraph_format.space_after = Pt(0)
+                
+                # --- FIX: SPAZIO SOLO PER ESPERIENZA E EDUCAZIONE ---
+                if key in ['experience', 'education']:
+                    doc.add_paragraph("") # Riga vuota per staccare i blocchi
         else:
             p = doc.add_paragraph(str(content))
-            p.paragraph_format.space_after = Pt(12)
+            p.paragraph_format.space_after = Pt(6)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -260,7 +265,7 @@ def create_letter_docx(json_data, lang_code, candidate_name):
         p_rec = doc.add_paragraph(rec)
         p_rec.space_after = Pt(24)
 
-    # 4. OGGETTO
+    # 4. OGGETTO (Grassetto)
     subj = ld.get('subject_line', '')
     if subj:
         p_subj = doc.add_paragraph()
@@ -289,8 +294,8 @@ def create_letter_docx(json_data, lang_code, candidate_name):
     p_close = doc.add_paragraph(closing)
     p_close.paragraph_format.keep_with_next = True
     
-    # 3 Righe vuote
-    for _ in range(3):
+    # 4 Righe vuote per la firma
+    for _ in range(4):
         p_s = doc.add_paragraph()
         p_s.paragraph_format.keep_with_next = True
         p_s.paragraph_format.space_after = Pt(0)
@@ -307,12 +312,9 @@ def create_letter_docx(json_data, lang_code, candidate_name):
 
 # Sidebar
 with st.sidebar:
-    lang_sel = st.selectbox("Language", list(LANG_DISPLAY.keys()), key="lang_select")
-    # Aggiorna lo stato solo se cambiato
-    if LANG_DISPLAY[lang_sel] != st.session_state['lang_code']:
-        st.session_state['lang_code'] = LANG_DISPLAY[lang_sel]
-        
-    t = TRANSLATIONS[st.session_state['lang_code']]
+    lang_sel = st.selectbox("Language / Lingua", list(LANG_DISPLAY.keys()))
+    st.session_state.lang_code = LANG_DISPLAY[lang_sel]
+    t = TRANSLATIONS[st.session_state.lang_code]
     
     st.title(t['sidebar_title'])
     st.markdown("---")
@@ -331,7 +333,6 @@ with st.sidebar:
 # Main
 st.title(t['main_title'])
 
-# Configurazione API
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
