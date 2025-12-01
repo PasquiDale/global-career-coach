@@ -12,7 +12,8 @@ import io
 import json
 import datetime
 import urllib.parse
-import pypdf  # SOSTITUZIONE CRITICA DI PYPDF2
+import pypdf
+from serpapi import GoogleSearch  # NUOVA LIBRERIA PER RICERCA REALE
 
 # --- 1. CONFIGURAZIONE PAGINA ---
 st.set_page_config(
@@ -28,16 +29,35 @@ st.markdown("""
     .stButton>button {
         width: 100%;
         cursor: pointer;
+        font-weight: bold;
     }
     .job-card {
-        padding: 15px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        background-color: #f9f9f9;
+        padding: 20px;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
     }
-    .job-card h4 { margin: 0 0 5px 0; color: #1F4E79; }
-    .job-card a { color: #d9534f; text-decoration: none; font-weight: bold; }
+    .job-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .job-card h4 { margin: 0 0 8px 0; color: #1F4E79; font-size: 18px; }
+    .job-card .company { color: #555; font-weight: 600; margin-bottom: 10px; }
+    .job-card .location { color: #777; font-size: 14px; margin-bottom: 10px; }
+    .job-card a { 
+        display: inline-block;
+        background-color: #1F4E79;
+        color: white !important;
+        padding: 8px 15px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+    .job-card a:hover { background-color: #163a5c; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -74,7 +94,8 @@ TRANSLATIONS = {
         "btn_gen": "Genera Documenti", "btn_search": "Cerca Lavoro Live",
         "tab_cv": "CV Riscritto", "tab_cl": "Lettera", "tab_search": "Offerte Trovate",
         "warn_api": "Inserisci API Key nella Sidebar", "warn_data": "Carica CV e Annuncio",
-        "loading": "Elaborazione con Gemini...", "searching": "Scansione web in corso..."
+        "loading": "Gemini 3 Pro al lavoro...", "searching": "Ricerca offerte reali...",
+        "source_serp": "Fonte: Google Jobs (Live)", "source_smart": "Fonte: Smart Search (AI + Web)"
     },
     "en": {
         "title": "Global Career Coach 🚀", "sub_cv": "1. Upload CV & Photo", 
@@ -84,13 +105,12 @@ TRANSLATIONS = {
         "btn_gen": "Generate Docs", "btn_search": "Live Job Search",
         "tab_cv": "Rewritten CV", "tab_cl": "Cover Letter", "tab_search": "Found Jobs",
         "warn_api": "Enter API Key in Sidebar", "warn_data": "Upload CV and Job Ad",
-        "loading": "Processing with Gemini...", "searching": "Scanning the web..."
+        "loading": "Gemini 3 Pro working...", "searching": "Searching real jobs...",
+        "source_serp": "Source: Google Jobs (Live)", "source_smart": "Source: Smart Search (AI + Web)"
     },
-    # (Aggiungere de, es, pt per brevità se necessario, ma la logica è identica)
 }
-# Fallback per lingue mancanti nel dizionario sopra per brevità
-for l in ["de", "es", "pt"]:
-    TRANSLATIONS[l] = TRANSLATIONS["en"]
+# Fallback
+for l in ["de", "es", "pt"]: TRANSLATIONS[l] = TRANSLATIONS["en"]
 
 # --- 5. FUNZIONI HELPER ---
 
@@ -99,7 +119,6 @@ def get_todays_date(lang):
     return now.strftime("%d.%m.%Y")
 
 def extract_text_from_pdf(uploaded_file):
-    """Estrae testo usando pypdf (versione stabile)."""
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
@@ -111,12 +130,10 @@ def extract_text_from_pdf(uploaded_file):
         return ""
 
 def process_image(uploaded_img, border_size):
-    """Elabora l'immagine con PIL."""
     if not uploaded_img: return None
     try:
         img = Image.open(uploaded_img)
         if img.mode != 'RGB': img = img.convert('RGB')
-        # Aggiunge bordo bianco
         if border_size > 0:
             img = ImageOps.expand(img, border=border_size, fill='white')
         
@@ -128,7 +145,6 @@ def process_image(uploaded_img, border_size):
         return None
 
 def set_table_background(table, color_hex):
-    """Imposta sfondo blu per la tabella header."""
     tbl_pr = table._tbl.tblPr
     if tbl_pr is None:
         tbl_pr = OxmlElement('w:tblPr')
@@ -138,7 +154,6 @@ def set_table_background(table, color_hex):
     shd.set(qn('w:color'), 'auto')
     shd.set(qn('w:fill'), color_hex)
     tbl_pr.append(shd)
-    # Applica a tutte le celle
     for row in table.rows:
         for cell in row.cells:
             tc_pr = cell._tc.get_or_add_tcPr()
@@ -149,7 +164,6 @@ def set_table_background(table, color_hex):
             tc_pr.append(cell_shd)
 
 def add_bottom_border(paragraph):
-    """Aggiunge la linea sotto i titoli."""
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pbdr = OxmlElement('w:pBdr')
@@ -157,112 +171,121 @@ def add_bottom_border(paragraph):
     bottom.set(qn('w:val'), 'single')
     bottom.set(qn('w:sz'), '6')
     bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), '000000') # Nero
+    bottom.set(qn('w:color'), '000000') 
     pbdr.append(bottom)
     pPr.append(pbdr)
 
-# --- 6. FUNZIONE SEARCH JOBS LIVE ---
-def search_jobs_live(api_key, role, location, radius, lang):
+# --- 6. MOTORE DI RICERCA IBRIDO (SERPAPI + GEMINI FALLBACK) ---
+def search_jobs_master(gemini_key, serp_key, role, location, lang):
     """
-    Tenta la ricerca live con Gemini 2.0 Flash Tools.
-    Fallback: Smart Links generati via Python.
+    Tenta la ricerca reale su Google Jobs tramite SerpApi.
+    Se fallisce (o manca la chiave), usa Gemini + Python Link Construction.
     """
-    genai.configure(api_key=api_key)
     
-    # TENTATIVO 1: LIVE SEARCH con Tools
+    # --- PIANO A: SERPAPI (Google Jobs Reale) ---
+    if serp_key:
+        try:
+            params = {
+                "engine": "google_jobs",
+                "q": f"{role} {location}",
+                "hl": lang, # Lingua interfaccia Google
+                "api_key": serp_key
+            }
+            
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            jobs = results.get("jobs_results", [])
+            
+            if jobs:
+                formatted_jobs = []
+                for job in jobs[:6]: # Primi 6 risultati
+                    # Cerchiamo un link diretto se possibile
+                    apply_link = "#"
+                    if "apply_options" in job and len(job["apply_options"]) > 0:
+                        apply_link = job["apply_options"][0]["link"]
+                    elif "share_link" in job:
+                        apply_link = job["share_link"]
+                    else:
+                        # Fallback link
+                        q_enc = urllib.parse.quote(f"{job.get('title')} {job.get('company_name')} jobs")
+                        apply_link = f"https://www.google.com/search?q={q_enc}"
+
+                    formatted_jobs.append({
+                        "company": job.get("company_name", "N/A"),
+                        "role_title": job.get("title", role),
+                        "link": apply_link,
+                        "location": job.get("location", location),
+                        "snippet": job.get("description", "")[:150] + "..."
+                    })
+                return formatted_jobs, "serp"
+                
+        except Exception as e:
+            print(f"SerpApi Error (Fallback to Gemini): {e}")
+            # Non blocchiamo, passiamo al Piano B
+
+    # --- PIANO B: FALLBACK SMART (Gemini 2.0 Flash) ---
+    # Se siamo qui, SerpApi ha fallito o la chiave mancava.
     try:
-        tools = [{'google_search_retrieval': {}}]
-        # Modello specifico per ricerca veloce
-        model = genai.GenerativeModel("models/gemini-2.0-flash", tools=tools)
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel("models/gemini-2.0-flash") # Veloce ed economico
         
         prompt = f"""
-        Find 5 ACTIVE and REAL job postings for the role '{role}' in '{location}' (within {radius} km).
-        Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}.
-        
-        Strictly output a JSON list of objects with these keys:
-        - "company": Company Name
-        - "role_title": Exact Role Title
-        - "link": The direct URL to the job posting (verify it exists)
-        - "snippet": A very short description (max 10 words)
-        
-        Example: [{{"company": "Google", "role_title": "Software Eng", "link": "https://...", "snippet": "..."}}]
+        Identify 5 real companies in '{location}' that are known to hire for '{role}' roles.
+        Return ONLY a JSON array of strings (Company Names).
+        Example: ["Company A", "Company B"]
+        Do not include markdown formatting.
         """
         
         response = model.generate_content(prompt)
-        text_resp = response.text.strip()
-        # Pulizia JSON
-        if "```json" in text_resp:
-            text_resp = text_resp.split("```json")[1].split("```")[0]
-        elif "```" in text_resp:
-            text_resp = text_resp.split("```")[1].split("```")[0]
+        text_resp = response.text.replace("```json", "").replace("```", "").strip()
+        companies = json.loads(text_resp)
+        
+        smart_jobs = []
+        for co in companies:
+            # Costruzione Link Intelligente
+            query = f"{role} jobs at {co} {location}"
+            link = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
             
-        results = json.loads(text_resp)
-        return results, "Live Search (Gemini 2.0)"
-
+            smart_jobs.append({
+                "company": co,
+                "role_title": f"{role} (Opportunity)",
+                "link": link,
+                "location": location,
+                "snippet": f"Check open positions at {co} in {location}."
+            })
+            
+        return smart_jobs, "smart"
+        
     except Exception as e:
-        # TENTATIVO 2: FALLBACK SMART LINKS
-        # Se fallisce il tool, usiamo l'AI per trovare aziende e Python per i link
-        try:
-            model_fallback = genai.GenerativeModel("models/gemini-2.0-flash") # No tools
-            prompt_fallback = f"""
-            Identify 5 companies in '{location}' that typically hire for '{role}'.
-            Return ONLY a JSON list of strings (Company Names).
-            Example: ["Company A", "Company B"]
-            """
-            response = model_fallback.generate_content(prompt_fallback)
-            text_resp = response.text.strip()
-            if "```" in text_resp:
-                text_resp = text_resp.replace("```json", "").replace("```", "")
-            
-            company_names = json.loads(text_resp)
-            
-            # Costruiamo i link manualmente (Smart Links)
-            smart_results = []
-            for co in company_names:
-                query = f"{role} {co} {location} jobs"
-                encoded_query = urllib.parse.quote(query)
-                google_url = f"https://www.google.com/search?q={encoded_query}"
-                smart_results.append({
-                    "company": co,
-                    "role_title": f"{role} (Search)",
-                    "link": google_url,
-                    "snippet": "Click to search for open positions"
-                })
-            
-            return smart_results, "Smart Links (Fallback)"
-            
-        except Exception as e2:
-            return [], f"Error: {str(e2)}"
+        return [], f"Error: {e}"
 
-# --- 7. LOGICA GENERAZIONE DOCUMENTI ---
+# --- 7. GENERATORE DOCUMENTI (GEMINI 3 PRO PREVIEW) ---
 def generate_docs_ai(api_key, cv_text, job_text, lang):
     genai.configure(api_key=api_key)
-    
-    # Modello 3.0 Pro Preview per alta qualità scrittura
     model = genai.GenerativeModel("models/gemini-3-pro-preview")
     
     prompt = f"""
-    Act as a Professional HR Resume Writer. Language: {lang}.
+    Act as a Senior HR Resume Writer. Language: {lang}.
     
     INPUT:
-    CV Text: {cv_text[:20000]}
-    Job Ad: {job_text[:5000]}
+    CV Text: {cv_text[:30000]}
+    Job Ad: {job_text[:10000]}
     
     TASK:
-    1. Extract Header Info (Name, Address, Email, Phone).
-    2. Rewrite the CV body. Use professional Action Verbs. Structure: Summary, Experience, Education, Skills.
-    3. Write a Cover Letter tailored to the Job Ad.
+    1. Extract Header Data (Name, Address, Phone, Email).
+    2. Rewrite the CV Body professionally (Action-Oriented).
+    3. Write a tailored Cover Letter.
     
-    OUTPUT JSON FORMAT (Strict):
+    OUTPUT JSON (Strict):
     {{
-        "header": {{ "name": "...", "address": "...", "email": "...", "phone": "..." }},
+        "header": {{ "name": "...", "address": "...", "phone": "...", "email": "..." }},
         "cv_body": [
             {{ "section": "PROFILE", "content": "..." }},
-            {{ "section": "EXPERIENCE", "content": "role at company..." }},
+            {{ "section": "EXPERIENCE", "content": "..." }},
             {{ "section": "EDUCATION", "content": "..." }},
             {{ "section": "SKILLS", "content": "..." }}
         ],
-        "cover_letter": "Full text of cover letter..."
+        "cover_letter": "...full text..."
     }}
     """
     
@@ -271,72 +294,69 @@ def generate_docs_ai(api_key, cv_text, job_text, lang):
         text_resp = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(text_resp)
     except Exception as e:
-        st.error(f"AI Generation Error: {e}")
+        st.error(f"AI Error: {e}")
         return None
 
-# --- 8. CREAZIONE WORD CV (HEADER BLU) ---
+# --- 8. CREAZIONE WORD CV (LAYOUT BLU) ---
 def create_cv_docx(data, photo_bytes, lang):
     doc = Document()
     
-    # Margini stretti per massimizzare spazio
+    # Layout Pagina
     section = doc.sections[0]
     section.left_margin = Cm(1.5)
     section.right_margin = Cm(1.5)
     section.top_margin = Cm(1.0)
     
-    # HEADER TABELLA (Sfondo Blu #20547D)
+    # --- HEADER BLU ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    table.columns[0].width = Inches(1.5) # Colonna Foto
-    table.columns[1].width = Inches(6.0) # Colonna Testo
+    table.columns[0].width = Inches(1.5)
+    table.columns[1].width = Inches(6.0)
     
-    set_table_background(table, "20547D") # Blu scuro
+    set_table_background(table, "20547D") # Blu richiesto
     
-    # Cella Foto
-    cell_img = table.cell(0, 0)
-    cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    p_img = cell_img.paragraphs[0]
+    # Foto (Sx)
+    c_img = table.cell(0, 0)
+    c_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    p_img = c_img.paragraphs[0]
     p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
     if photo_bytes:
-        run_img = p_img.add_run()
-        run_img.add_picture(photo_bytes, width=Inches(1.2))
+        r_img = p_img.add_run()
+        r_img.add_picture(photo_bytes, width=Inches(1.2))
         
-    # Cella Testo
-    cell_txt = table.cell(0, 1)
-    cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    # Testo (Dx)
+    c_txt = table.cell(0, 1)
+    c_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
     # Nome
-    p_name = cell_txt.paragraphs[0]
-    run_name = p_name.add_run(data['header'].get('name', 'Name').upper())
-    run_name.font.size = Pt(24)
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
-    run_name.bold = True
+    p_name = c_txt.paragraphs[0]
+    r_name = p_name.add_run(data['header'].get('name', 'Name').upper())
+    r_name.font.size = Pt(24)
+    r_name.font.color.rgb = RGBColor(255, 255, 255)
+    r_name.bold = True
     
-    # Dati Contatto
-    contact_info = f"{data['header'].get('address', '')} | {data['header'].get('phone', '')} | {data['header'].get('email', '')}"
-    p_contact = cell_txt.add_paragraph(contact_info)
-    run_contact = p_contact.runs[0]
-    run_contact.font.size = Pt(10)
-    run_contact.font.color.rgb = RGBColor(255, 255, 255)
+    # Contatti
+    info = f"{data['header'].get('address', '')} | {data['header'].get('phone', '')} | {data['header'].get('email', '')}"
+    p_info = c_txt.add_paragraph(info)
+    r_info = p_info.runs[0]
+    r_info.font.size = Pt(10)
+    r_info.font.color.rgb = RGBColor(255, 255, 255)
     
-    doc.add_paragraph() # Spazio dopo header
+    doc.add_paragraph() # Spazio
     
-    # BODY
-    for section in data.get('cv_body', []):
-        # Titolo Sezione
+    # --- BODY ---
+    for sec in data.get('cv_body', []):
+        # Titolo
         h = doc.add_paragraph()
         add_bottom_border(h)
-        run_h = h.add_run(section['section'].upper())
-        run_h.font.size = Pt(12)
-        run_h.bold = True
-        run_h.font.color.rgb = RGBColor(32, 84, 125) # Blu simile header
+        rh = h.add_run(sec['section'].upper())
+        rh.font.size = Pt(12)
+        rh.bold = True
+        rh.font.color.rgb = RGBColor(32, 84, 125)
         
         # Contenuto
-        p = doc.add_paragraph(section['content'])
-        p.paragraph_format.space_after = Pt(12)
-        
-        # Spaziatura extra richiesta
-        doc.add_paragraph("") 
+        doc.add_paragraph(sec['content'])
+        doc.add_paragraph("") # Spazio extra richiesto
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -347,11 +367,10 @@ def create_cv_docx(data, photo_bytes, lang):
 def create_letter_docx(text, data, lang):
     doc = Document()
     
-    # Intestazione
+    # Header
     doc.add_paragraph(data['header'].get('name', ''))
     doc.add_paragraph(data['header'].get('address', ''))
     doc.add_paragraph(data['header'].get('email', ''))
-    doc.add_paragraph(data['header'].get('phone', ''))
     doc.add_paragraph("\n")
     
     # Data
@@ -361,138 +380,100 @@ def create_letter_docx(text, data, lang):
     # Corpo
     doc.add_paragraph(text)
     doc.add_paragraph("\n\n")
-    
-    # Firma
     doc.add_paragraph("_______________________")
-    doc.add_paragraph(data['header'].get('name', ''))
     
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- 10. MAIN APP LOOP ---
-
+# --- 10. MAIN APP ---
 def main():
-    # Gestione Lingua
+    # Setup Lingua
     lang_sel = st.sidebar.selectbox("Lingua / Language", list(LANG_DISPLAY.keys()))
     lang_iso = LANG_DISPLAY[lang_sel]
     txt = TRANSLATIONS[lang_iso]
     
-    # API Key
-    api_key = st.secrets.get("GEMINI_API_KEY", None)
-    if not api_key:
-        api_key = st.sidebar.text_input("API Key", type="password")
-        
-    # Sidebar Inputs
-    st.sidebar.markdown(f"### {txt['sub_cv']}")
-    uploaded_photo = st.sidebar.file_uploader(txt["up_ph"], type=["jpg", "png", "jpeg"])
-    border_val = st.sidebar.slider(txt["bord"], 0, 50, 15)
+    # Secrets
+    gemini_key = st.secrets.get("GEMINI_API_KEY", None)
+    serp_key = st.secrets.get("SERPAPI_API_KEY", None) # Opzionale, ma consigliata per ricerca reale
     
-    # Processing Foto Live
-    if uploaded_photo:
-        st.session_state.processed_photo = process_image(uploaded_photo, border_val)
+    if not gemini_key:
+        gemini_key = st.sidebar.text_input("Gemini API Key", type="password")
+    
+    # Sidebar
+    st.sidebar.markdown(f"### {txt['sub_cv']}")
+    up_ph = st.sidebar.file_uploader(txt['up_ph'], type=["jpg","png","jpeg"])
+    bord = st.sidebar.slider(txt['bord'], 0, 50, 15)
+    
+    if up_ph:
+        st.session_state.processed_photo = process_image(up_ph, bord)
         st.sidebar.image(st.session_state.processed_photo, width=150)
         
     st.sidebar.divider()
     
     # Job Search Sidebar
     st.sidebar.markdown(f"### {txt['sub_job']}")
-    search_role = st.sidebar.text_input(txt["role"])
-    search_loc = st.sidebar.text_input(txt["loc"])
-    search_rad = st.sidebar.slider(txt["rad"], 10, 100, 30)
+    s_role = st.sidebar.text_input(txt['role'])
+    s_loc = st.sidebar.text_input(txt['loc'])
     
-    if st.sidebar.button(txt["btn_search"]):
-        if api_key and search_role and search_loc:
-            with st.spinner(txt["searching"]):
-                res, method = search_jobs_live(api_key, search_role, search_loc, search_rad, lang_sel)
-                st.session_state.job_search_results = (res, method)
+    if st.sidebar.button(txt['btn_search']):
+        if gemini_key and s_role and s_loc:
+            with st.spinner(txt['searching']):
+                res, mode = search_jobs_master(gemini_key, serp_key, s_role, s_loc, lang_iso)
+                st.session_state.job_search_results = (res, mode)
         else:
-            st.sidebar.error("Mancano dati o API Key")
+            st.sidebar.error("Mancano dati per la ricerca")
 
-    # Main Content
-    st.title(txt["title"])
+    # Main
+    st.title(txt['title'])
     
-    # Input CV e Annuncio
-    col1, col2 = st.columns(2)
-    with col1:
-        f_cv = st.file_uploader(txt["up_cv"], type=["pdf"])
-    with col2:
-        job_ad_text = st.text_area(txt["desc"], height=150)
-
-    # Bottone Generazione
-    if st.button(txt["btn_gen"], type="primary"):
-        if not api_key:
-            st.error(txt["warn_api"])
-        elif not f_cv or not job_ad_text:
-            st.error(txt["warn_data"])
-        else:
-            with st.spinner(txt["loading"]):
-                raw_text = extract_text_from_pdf(f_cv)
-                data = generate_docs_ai(api_key, raw_text, job_ad_text, lang_sel)
+    c1, c2 = st.columns(2)
+    with c1: f_cv = st.file_uploader(txt['up_cv'], type=["pdf"])
+    with c2: job_ad = st.text_area(txt['desc'], height=150)
+    
+    if st.button(txt['btn_gen'], type="primary"):
+        if gemini_key and f_cv and job_ad:
+            with st.spinner(txt['loading']):
+                raw_txt = extract_text_from_pdf(f_cv)
+                data = generate_docs_ai(gemini_key, raw_txt, job_ad, lang_iso)
                 if data:
                     st.session_state.generated_data = data
                     st.success("OK!")
-
-    # Output Tabs
-    t1, t2, t3 = st.tabs([txt["tab_cv"], txt["tab_cl"], txt["tab_search"]])
+        else:
+            st.error(txt['warn_data'])
+            
+    # Tabs Risultati
+    t1, t2, t3 = st.tabs([txt['tab_cv'], txt['tab_cl'], txt['tab_search']])
     
-    # Tab 1: CV
     with t1:
         if st.session_state.generated_data:
-            # Anteprima testo veloce
             st.json(st.session_state.generated_data.get('header'))
+            docx = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo, lang_iso)
+            st.download_button("⬇️ DOCX", docx, "CV_Pro.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             
-            # Generazione Word
-            docx_cv = create_cv_docx(
-                st.session_state.generated_data, 
-                st.session_state.processed_photo,
-                lang_sel
-            )
-            
-            st.download_button(
-                label=f"⬇️ {txt['tab_cv']} (.docx)",
-                data=docx_cv,
-                file_name="CV_Optimized.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-    
-    # Tab 2: Lettera
     with t2:
         if st.session_state.generated_data:
-            cl_text = st.session_state.generated_data.get('cover_letter', '')
-            st.markdown(cl_text)
+            cl = st.session_state.generated_data.get('cover_letter', '')
+            st.markdown(cl)
+            docx = create_letter_docx(cl, st.session_state.generated_data, lang_iso)
+            st.download_button("⬇️ DOCX", docx, "CoverLetter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             
-            docx_cl = create_letter_docx(
-                cl_text,
-                st.session_state.generated_data,
-                lang_sel
-            )
-            
-            st.download_button(
-                label=f"⬇️ {txt['tab_cl']} (.docx)",
-                data=docx_cl,
-                file_name="Cover_Letter.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-
-    # Tab 3: Risultati Ricerca
     with t3:
         if st.session_state.job_search_results:
-            results, method = st.session_state.job_search_results
-            st.caption(f"Source: {method}")
+            res, mode = st.session_state.job_search_results
+            label_src = txt['source_serp'] if mode == "serp" else txt['source_smart']
+            st.caption(label_src)
             
-            for job in results:
-                st.markdown(
-                    f"""
-                    <div class="job-card">
-                        <h4>{job.get('role_title')} @ {job.get('company')}</h4>
-                        <p>{job.get('snippet', '')}</p>
-                        <a href="{job.get('link')}" target="_blank">👉 APPLICA ORA / VAI AL SITO</a>
-                    </div>
-                    """, 
-                    unsafe_allow_html=True
-                )
+            for j in res:
+                st.markdown(f"""
+                <div class="job-card">
+                    <h4>{j['role_title']}</h4>
+                    <div class="company">🏢 {j['company']} - 📍 {j.get('location', '')}</div>
+                    <div style="font-size:0.9em; color:#666; margin-bottom:10px;">{j['snippet']}</div>
+                    <a href="{j['link']}" target="_blank">👉 APPLICA SUBITO</a>
+                </div>
+                """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
