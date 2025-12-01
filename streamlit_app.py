@@ -17,38 +17,26 @@ try:
 except ImportError:
     GoogleSearch = None
 
-# --- 1. CONFIGURAZIONE PAGINA ---
+# --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Global Career Coach", layout="wide", initial_sidebar_state="expanded")
+st.markdown("""<style>div[data-baseweb="select"] > div { cursor: pointer !important; } button { cursor: pointer !important; }</style>""", unsafe_allow_html=True)
 
-# --- 2. CSS INJECTION ---
-st.markdown("""
-    <style>
-    div[data-baseweb="select"] > div { cursor: pointer !important; }
-    button { cursor: pointer !important; }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 3. SESSION STATE ---
+# --- SESSION STATE ---
 if 'lang_code' not in st.session_state: st.session_state['lang_code'] = 'it'
 if 'generated_data' not in st.session_state: st.session_state['generated_data'] = None
 if 'processed_photo' not in st.session_state: st.session_state['processed_photo'] = None
 if 'job_search_results' not in st.session_state: st.session_state['job_search_results'] = None
 if 'pdf_ref' not in st.session_state: st.session_state['pdf_ref'] = None
 
-# --- 4. COSTANTI ---
-LANG_DISPLAY = {
-    "Italiano": "it", "English (US)": "en_us", "English (UK)": "en_uk",
-    "Deutsch (Deutschland)": "de_de", "Deutsch (Schweiz)": "de_ch",
-    "Français": "fr", "Español": "es", "Português": "pt"
-}
-
+# --- DIZIONARI ---
+LANG_DISPLAY = {"Italiano": "it", "English (US)": "en_us", "English (UK)": "en_uk", "Deutsch (Deutschland)": "de_de", "Deutsch (Schweiz)": "de_ch", "Français": "fr", "Español": "es", "Português": "pt"}
 TRANSLATIONS = {
     'it': {'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 'profile_title': 'PROFILO PERSONALE', 'search_sec_title': 'Cerca Lavoro', 'search_role': 'Che lavoro cerchi?', 'search_loc': 'Dove?', 'search_rad': 'Raggio (km)', 'search_btn': 'Trova Lavori 🔎', 'search_res_title': 'Offerte Trovate:', 'search_info': 'Copia il testo dell\'annuncio e incollalo sotto.', 'no_jobs': 'Nessun lavoro trovato.', 'upload_first': '⚠️ Carica prima il CV!'},
     'en_us': {'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE', 'search_sec_title': 'Job Search', 'search_role': 'Job Title', 'search_loc': 'Location', 'search_rad': 'Radius (km)', 'search_btn': 'Find Jobs 🔎', 'search_res_title': 'Found Jobs:', 'search_info': 'Copy the ad text and paste it below.', 'no_jobs': 'No jobs found.', 'upload_first': '⚠️ Upload CV first!'},
     'de_ch': {'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stelleninserat', 'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL', 'search_sec_title': 'Jobsuche', 'search_role': 'Welcher Job?', 'search_loc': 'Wo?', 'search_rad': 'Umkreis (km)', 'search_btn': 'Jobs suchen 🔎', 'search_res_title': 'Gefundene Jobs:', 'search_info': 'Kopieren Sie den Text und fügen Sie ihn unten ein.', 'no_jobs': 'Keine Jobs gefunden.', 'upload_first': '⚠️ Zuerst Lebenslauf hochladen!'},
     'de_de': {'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL', 'search_sec_title': 'Jobsuche', 'search_role': 'Welcher Job?', 'search_loc': 'Wo?', 'search_rad': 'Umkreis (km)', 'search_btn': 'Jobs suchen 🔎', 'search_res_title': 'Gefundene Jobs:', 'search_info': 'Kopieren Sie den Text und fügen Sie ihn unten ein.', 'no_jobs': 'Keine Jobs gefunden.', 'upload_first': '⚠️ Zuerst Lebenslauf hochladen!'},
     'fr': {'sidebar_title': 'Paramètres du Profil', 'lang_label': 'Langue', 'photo_label': 'Photo de Profil', 'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 'job_placeholder': 'Collez le texte de l\'offre ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 'success': 'Terminé!', 'error': 'Erreur', 'profile_title': 'PROFIL PROFESSIONNEL', 'search_sec_title': 'Recherche Emploi', 'search_role': 'Quel emploi ?', 'search_loc': 'Où ?', 'search_rad': 'Rayon (km)', 'search_btn': 'Trouver Emplois 🔎', 'search_res_title': 'Emplois trouvés :', 'search_info': 'Copiez le texte et collez-le ci-dessous.', 'no_jobs': 'Aucun emploi trouvé.', 'upload_first': '⚠️ Chargez d\'abord le CV!'},
-    'es': {'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL', 'search_sec_title': 'Buscar Empleo', 'search_role': '¿Qué trabajo?', 'search_loc': '¿Dónde?', 'search_rad': 'Radio (km)', 'search_btn': 'Buscar Empleos 🔎', 'search_res_title': 'Empleos encontrados:', 'search_info': 'Copia el texto y pégalo abajo.', 'no_jobs': 'No se encontraron empleos.', 'upload_first': '⚠️ ¡Sube el CV primero!'},
+    'es': {'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL', 'search_sec_title': 'Buscar Empleo', 'search_role': '¿Qué trabajo?', 'search_loc': '¿Dónde?', 'search_rad': 'Radio (km)', 'search_btn': 'Buscar Emplois 🔎', 'search_res_title': 'Empleos encontrados:', 'search_info': 'Copia el texto y pégalo abajo.', 'no_jobs': 'No se encontraron empleos.', 'upload_first': '⚠️ ¡Sube el CV primero!'},
     'pt': {'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto', 'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 'success': 'Pronto', 'error': 'Erro', 'profile_title': 'PERFIL PROFISSIONAL', 'search_sec_title': 'Buscar Emprego', 'search_role': 'Qual trabalho?', 'search_loc': 'Onde?', 'search_rad': 'Raio (km)', 'search_btn': 'Buscar Empregos 🔎', 'search_res_title': 'Empregos encontrados:', 'search_info': 'Copie o texto e cole abaixo.', 'no_jobs': 'Nenhum emprego encontrado.', 'upload_first': '⚠️ Carregue o CV primeiro!'},
     'en_uk': {'sidebar_title': 'Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE', 'search_sec_title': 'Job Search', 'search_role': 'Job Title', 'search_loc': 'Location', 'search_rad': 'Radius (km)', 'search_btn': 'Find Jobs 🔎', 'search_res_title': 'Found Jobs:', 'search_info': 'Copy the ad text and paste it below.', 'no_jobs': 'No jobs found.', 'upload_first': '⚠️ Upload CV first!'}
 }
@@ -94,11 +82,10 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text()
     return text
 
-# --- 6. CREATE CV DOCX (BLU & SPAZIATO) ---
+# --- 6. CREATE CV DOCX ---
 def create_cv_docx(json_data, pil_image, lang_code):
     doc = Document()
     
-    # Header Table
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
     table.columns[0].width = Inches(1.2)
@@ -111,7 +98,7 @@ def create_cv_docx(json_data, pil_image, lang_code):
     set_table_background(row.cells[0], "20547D")
     set_table_background(row.cells[1], "20547D")
     
-    # Foto (Left)
+    # Foto
     cell_foto = row.cells[0]
     cell_foto.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if pil_image:
@@ -126,7 +113,7 @@ def create_cv_docx(json_data, pil_image, lang_code):
         run = p.add_run()
         run.add_picture(img_s, height=Inches(1.5))
         
-    # Testo (Name)
+    # Testo
     cell_text = row.cells[1]
     cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     p_name = cell_text.paragraphs[0]
@@ -144,9 +131,8 @@ def create_cv_docx(json_data, pil_image, lang_code):
     run_info = p_info.add_run(info)
     run_info.font.color.rgb = RGBColor(255, 255, 255)
     
-    doc.add_paragraph("") 
-
-    # BODY
+    doc.add_paragraph("")
+    
     titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
     
     if 'profile_summary' in json_data['cv_sections']:
@@ -173,13 +159,12 @@ def create_cv_docx(json_data, pil_image, lang_code):
             if isinstance(items, list):
                 for item in items:
                     p = doc.add_paragraph(item.replace('**', ''), style='List Bullet')
-                    # Spazio solo per Exp e Edu
                     if key in ['experience', 'education']:
                         doc.add_paragraph("")
             else:
                 doc.add_paragraph(str(items).replace('**', ''))
                 doc.add_paragraph("")
-
+    
     bio = io.BytesIO()
     doc.save(bio)
     return bio
@@ -210,10 +195,10 @@ def create_letter_docx(letter_data, personal_info, lang_code):
     doc.save(bio)
     return bio
 
-# --- 8. SEARCH JOBS (SERPAPI) ---
+# --- 8. JOB SEARCH (SERPAPI) ---
 def search_jobs_master(role, loc, rad, lang):
     if "SERPAPI_API_KEY" not in st.secrets:
-        st.error("SERPAPI_API_KEY missing.")
+        st.error("SERPAPI Key Missing")
         return []
     
     try:
@@ -250,18 +235,18 @@ def search_jobs_master(role, loc, rad, lang):
         st.error(f"Search Error: {e}")
         return []
 
-# --- 9. AI GENERATION (GEMINI 2.0 FLASH) ---
+# --- 9. AI GENERATION (GEMINI 2.5 PRO) ---
 def get_gemini_response(pdf_text, job_text, lang_code):
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel("models/gemini-2.0-flash")
+        model = genai.GenerativeModel("models/gemini-2.5-pro")
         prompt = f"HR Expert. Create CV/Letter in {lang_code}. JSON Keys: personal_info, cv_sections (profile_summary, experience, education, skills, languages, interests), letter_data. NO AI MENTION."
         response = model.generate_content([prompt, pdf_text, job_text])
         return response.text
     except Exception as e:
         return str(e)
 
-# --- 10. MAIN LOOP ---
+# --- 10. MAIN APP LOOP ---
 with st.sidebar:
     lang_names = list(LANG_DISPLAY.keys())
     curr_code = st.session_state['lang_code']
@@ -282,7 +267,6 @@ with st.sidebar:
     up_photo = st.file_uploader(t['photo_label'], type=['jpg','png'])
     border = st.slider(t['border_label'], 0, 50, 5)
     st.session_state['processed_photo'] = process_image(up_photo, border)
-    
     if st.session_state['processed_photo']:
         st.image(st.session_state['processed_photo'], caption=t['preview_label'])
         
