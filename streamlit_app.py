@@ -1,432 +1,545 @@
 import streamlit as st
 import google.generativeai as genai
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import nsdecls
-from docx.oxml import parse_xml
+from docx.shared import Pt, RGBColor, Inches, Cm
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
+from docx.oxml.ns import qn, nsdecls
+from docx.oxml import OxmlElement, parse_xml
 import io
-from PIL import Image, ImageOps
-import pypdf  # NUOVA LIBRERIA (Sostituisce PyPDF2)
-from datetime import datetime
 import json
-import urllib.parse
+import datetime
+from PIL import Image, ImageOps, ImageDraw
+import pypdf
+from serpapi import GoogleSearch
 
-# Gestione import opzionale per SerpApi
-try:
-    from serpapi import GoogleSearch
-except ImportError:
-    GoogleSearch = None
+# -----------------------------------------------------------------------------
+# 1. CONFIGURAZIONE PAGINA
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Global Career Coach",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- 1. CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Global Career Coach", layout="wide", initial_sidebar_state="expanded")
-
-# --- 2. CSS INJECTION ---
+# -----------------------------------------------------------------------------
+# 2. CSS INJECTION
+# -----------------------------------------------------------------------------
 st.markdown("""
     <style>
-    div[data-baseweb="select"] > div { cursor: pointer !important; }
-    button { cursor: pointer !important; }
+    .stButton button {
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .job-card {
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        background-color: #f9f9f9;
+        margin-bottom: 10px;
+    }
+    .job-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #20547D;
+    }
+    .job-company {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 5px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SESSION STATE ---
-if 'lang_code' not in st.session_state: st.session_state['lang_code'] = 'it'
-if 'generated_data' not in st.session_state: st.session_state['generated_data'] = None
-if 'processed_photo' not in st.session_state: st.session_state['processed_photo'] = None
-if 'job_search_results' not in st.session_state: st.session_state['job_search_results'] = None
-if 'pdf_ref' not in st.session_state: st.session_state['pdf_ref'] = None
+# -----------------------------------------------------------------------------
+# 3. INIZIALIZZAZIONE SESSION STATE
+# -----------------------------------------------------------------------------
+if 'lang_code' not in st.session_state:
+    st.session_state.lang_code = "Italiano"
+if 'generated_data' not in st.session_state:
+    st.session_state.generated_data = None
+if 'processed_photo' not in st.session_state:
+    st.session_state.processed_photo = None
+if 'job_search_results' not in st.session_state:
+    st.session_state.job_search_results = None
 
-# --- 4. COSTANTI E TRADUZIONI ---
+# -----------------------------------------------------------------------------
+# 4. COSTANTI E DIZIONARI
+# -----------------------------------------------------------------------------
 LANG_DISPLAY = {
-    "Italiano": "it", "English (US)": "en_us", "English (UK)": "en_uk",
-    "Deutsch (Deutschland)": "de_de", "Deutsch (Schweiz)": "de_ch",
-    "Français": "fr", "Español": "es", "Português": "pt"
-}
-
-TRANSLATIONS = {
-    'it': {
-        'sidebar_title': 'Impostazioni Profilo', 'lang_label': 'Lingua', 'photo_label': 'Foto Profilo', 
-        'border_label': 'Bordo (px)', 'preview_label': 'Anteprima', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Carica CV (PDF)', 'upload_help': 'Trascina file qui', 'step2_title': '2. Annuncio di Lavoro', 
-        'job_placeholder': 'Incolla qui il testo dell\'offerta...', 'btn_label': 'Genera Documenti', 
-        'spinner_msg': 'Elaborazione in corso...', 'tab_cv': 'CV Generato', 'tab_letter': 'Lettera', 
-        'down_cv': 'Scarica CV (Word)', 'down_let': 'Scarica Lettera (Word)', 'success': 'Fatto!', 'error': 'Errore', 
-        'profile_title': 'PROFILO PERSONALE', 'search_sec_title': 'Ricerca Lavoro', 'search_role': 'Che lavoro cerchi?', 
-        'search_loc': 'Dove?', 'search_rad': 'Raggio (km)', 'search_btn': 'Trova Lavori 🔎', 
-        'search_res_title': 'Offerte Trovate:', 'search_info': 'Copia il testo dell\'annuncio e incollalo sotto.', 
-        'no_jobs': 'Nessun lavoro trovato.', 'upload_first': '⚠️ Carica prima il CV!'
-    },
-    'en_us': {
-        'sidebar_title': 'Profile Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 
-        'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Upload CV (PDF)', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 
-        'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 
-        'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 
-        'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE', 'search_sec_title': 'Job Search', 
-        'search_role': 'Job Title', 'search_loc': 'Location', 'search_rad': 'Radius (km)', 'search_btn': 'Find Jobs 🔎', 
-        'search_res_title': 'Found Jobs:', 'search_info': 'Copy the ad text and paste it below.', 
-        'no_jobs': 'No jobs found.', 'upload_first': '⚠️ Upload CV first!'
-    },
-    'en_uk': {
-        'sidebar_title': 'Settings', 'lang_label': 'Language', 'photo_label': 'Profile Photo', 
-        'border_label': 'Border (px)', 'preview_label': 'Preview', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Upload CV', 'upload_help': 'Drop file here', 'step2_title': '2. Job Advertisement', 
-        'job_placeholder': 'Paste job offer...', 'btn_label': 'Generate Documents', 'spinner_msg': 'Processing...', 
-        'tab_cv': 'Generated CV', 'tab_letter': 'Cover Letter', 'down_cv': 'Download CV', 'down_let': 'Download Letter', 
-        'success': 'Done!', 'error': 'Error', 'profile_title': 'PROFESSIONAL PROFILE', 'search_sec_title': 'Job Search', 
-        'search_role': 'Job Title', 'search_loc': 'Location', 'search_rad': 'Radius (km)', 'search_btn': 'Find Jobs 🔎', 
-        'search_res_title': 'Found Jobs:', 'search_info': 'Copy the ad text and paste it below.', 
-        'no_jobs': 'No jobs found.', 'upload_first': '⚠️ Upload CV first!'
-    },
-    'de_ch': {
-        'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 
-        'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stelleninserat', 
-        'job_placeholder': 'Stelleninserat hier einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 
-        'tab_cv': 'Lebenslauf', 'tab_letter': 'Motivationsschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 
-        'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL', 'search_sec_title': 'Jobsuche', 
-        'search_role': 'Welcher Job?', 'search_loc': 'Wo?', 'search_rad': 'Umkreis (km)', 'search_btn': 'Jobs suchen 🔎', 
-        'search_res_title': 'Gefundene Jobs:', 'search_info': 'Kopieren Sie den Text und fügen Sie ihn unten ein.', 
-        'no_jobs': 'Keine Jobs gefunden.', 'upload_first': '⚠️ Zuerst Lebenslauf hochladen!'
-    },
-    'de_de': {
-        'sidebar_title': 'Einstellungen', 'lang_label': 'Sprache', 'photo_label': 'Profilbild', 
-        'border_label': 'Rahmen (px)', 'preview_label': 'Vorschau', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Lebenslauf hochladen (PDF)', 'upload_help': 'Datei hier ablegen', 'step2_title': '2. Stellenanzeige', 
-        'job_placeholder': 'Stellenanzeige einfügen...', 'btn_label': 'Dokumente erstellen', 'spinner_msg': 'Verarbeitung läuft...', 
-        'tab_cv': 'Lebenslauf', 'tab_letter': 'Anschreiben', 'down_cv': 'Lebenslauf laden', 'down_let': 'Brief laden', 
-        'success': 'Fertig!', 'error': 'Fehler', 'profile_title': 'PERSÖNLICHES PROFIL', 'search_sec_title': 'Jobsuche', 
-        'search_role': 'Welcher Job?', 'search_loc': 'Wo?', 'search_rad': 'Umkreis (km)', 'search_btn': 'Jobs suchen 🔎', 
-        'search_res_title': 'Gefundene Jobs:', 'search_info': 'Kopieren Sie den Text und fügen Sie ihn unten ein.', 
-        'no_jobs': 'Keine Jobs gefunden.', 'upload_first': '⚠️ Zuerst Lebenslauf hochladen!'
-    },
-    'fr': {
-        'sidebar_title': 'Paramètres du Profil', 'lang_label': 'Langue', 'photo_label': 'Photo de Profil', 
-        'border_label': 'Bordure (px)', 'preview_label': 'Aperçu', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Télécharger CV (PDF)', 'upload_help': 'Déposez le fichier ici', 'step2_title': '2. Offre d\'Emploi', 
-        'job_placeholder': 'Collez le texte de l\'offre ici...', 'btn_label': 'Générer Documents', 'spinner_msg': 'Traitement en cours...', 
-        'tab_cv': 'CV Généré', 'tab_letter': 'Lettre', 'down_cv': 'Télécharger CV (Word)', 'down_let': 'Télécharger Lettre (Word)', 
-        'success': 'Terminé!', 'error': 'Erreur', 'profile_title': 'PROFIL PROFESSIONNEL', 'search_sec_title': 'Recherche d\'emploi', 
-        'search_role': 'Quel emploi ?', 'search_loc': 'Où ?', 'search_rad': 'Rayon (km)', 'search_btn': 'Trouver Emplois 🔎', 
-        'search_res_title': 'Emplois trouvés :', 'search_info': 'Copiez le texte et collez-le ci-dessous.', 
-        'no_jobs': 'Aucun emploi trouvé.', 'upload_first': '⚠️ Chargez d\'abord le CV!'
-    },
-    'es': {
-        'sidebar_title': 'Configuración', 'lang_label': 'Idioma', 'photo_label': 'Foto', 
-        'border_label': 'Borde (px)', 'preview_label': 'Vista previa', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Subir CV', 'upload_help': 'Arrastra aquí', 'step2_title': '2. Oferta de Empleo', 
-        'job_placeholder': 'Pega la oferta...', 'btn_label': 'Generar', 'spinner_msg': 'Procesando...', 
-        'tab_cv': 'CV Generado', 'tab_letter': 'Carta', 'down_cv': 'Descargar CV', 'down_let': 'Descargar Carta', 
-        'success': 'Hecho', 'error': 'Error', 'profile_title': 'PERFIL PROFESIONAL', 'search_sec_title': 'Búsqueda de empleo', 
-        'search_role': '¿Qué trabajo?', 'search_loc': '¿Dónde?', 'search_rad': 'Radio (km)', 'search_btn': 'Buscar Empleos 🔎', 
-        'search_res_title': 'Empleos encontrados:', 'search_info': 'Copia el texto y pégalo abajo.', 
-        'no_jobs': 'No se encontraron empleos.', 'upload_first': '⚠️ ¡Sube el CV primero!'
-    },
-    'pt': {
-        'sidebar_title': 'Configurações', 'lang_label': 'Idioma', 'photo_label': 'Foto', 
-        'border_label': 'Borda (px)', 'preview_label': 'Visualizar', 'main_title': 'Global Career Coach 🌍', 
-        'step1_title': '1. Carregar CV', 'upload_help': 'Arraste aqui', 'step2_title': '2. Anúncio de Emprego', 
-        'job_placeholder': 'Cole o anúncio...', 'btn_label': 'Gerar', 'spinner_msg': 'Processando...', 
-        'tab_cv': 'CV Gerado', 'tab_letter': 'Carta', 'down_cv': 'Baixar CV', 'down_let': 'Baixar Carta', 
-        'success': 'Pronto', 'error': 'Erro', 'profile_title': 'PERFIL PROFISSIONAL', 'search_sec_title': 'Busca de emprego', 
-        'search_role': 'Qual trabalho?', 'search_loc': 'Onde?', 'search_rad': 'Raio (km)', 'search_btn': 'Buscar Empregos 🔎', 
-        'search_res_title': 'Empregos encontrados:', 'search_info': 'Copie o texto e cole abaixo.', 
-        'no_jobs': 'Nenhum emprego encontrado.', 'upload_first': '⚠️ Carregue o CV primeiro!'
-    }
+    "Italiano": "it", "English": "en", "Deutsch": "de", 
+    "Español": "es", "Português": "pt"
 }
 
 SECTION_TITLES = {
-    'it': {'experience': 'ESPERIENZA PROFESSIONALE', 'education': 'ISTRUZIONE', 'skills': 'COMPETENZE', 'languages': 'LINGUE', 'interests': 'INTERESSI', 'personal_info': 'DATI PERSONALI', 'profile_summary': 'PROFILO PERSONALE'},
-    'de_ch': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'languages': 'SPRACHEN', 'interests': 'INTERESSEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
-    'de_de': {'experience': 'BERUFSERFAHRUNG', 'education': 'AUSBILDUNG', 'skills': 'KENNTNISSE', 'languages': 'SPRACHEN', 'interests': 'INTERESSEN', 'personal_info': 'PERSÖNLICHE DATEN', 'profile_summary': 'PERSÖNLICHES PROFIL'},
-    'fr': {'experience': 'EXPÉRIENCE PROFESSIONNELLE', 'education': 'FORMATION', 'skills': 'COMPÉTENCES', 'languages': 'LANGUES', 'interests': 'INTÉRÊTS', 'personal_info': 'INFOS', 'profile_summary': 'PROFIL'},
-    'en_us': {'experience': 'PROFESSIONAL EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFILE'},
-    'en_uk': {'experience': 'WORK EXPERIENCE', 'education': 'EDUCATION', 'skills': 'SKILLS', 'languages': 'LANGUAGES', 'interests': 'INTERESTS', 'personal_info': 'PERSONAL DETAILS', 'profile_summary': 'PROFILE'},
-    'es': {'experience': 'EXPERIENCIA LABORAL', 'education': 'EDUCACIÓN', 'skills': 'HABILIDADES', 'languages': 'IDIOMAS', 'interests': 'INTERESES', 'personal_info': 'DATOS', 'profile_summary': 'PERFIL'},
-    'pt': {'experience': 'EXPERIÊNCIA PROFISSIONAL', 'education': 'EDUCAÇÃO', 'skills': 'COMPETÊNCIAS', 'languages': 'IDIOMAS', 'interests': 'INTERESSES', 'personal_info': 'DADOS', 'profile_summary': 'PERFIL'}
+    "it": {"exp": "ESPERIENZA PROFESSIONALE", "edu": "ISTRUZIONE", "skill": "COMPETENZE", "lang": "LINGUE"},
+    "en": {"exp": "PROFESSIONAL EXPERIENCE", "edu": "EDUCATION", "skill": "SKILLS", "lang": "LANGUAGES"},
+    "de": {"exp": "BERUFSERFAHRUNG", "edu": "AUSBILDUNG", "skill": "FÄHIGKEITEN", "lang": "SPRACHEN"},
+    "es": {"exp": "EXPERIENCIA PROFESIONAL", "edu": "EDUCACIÓN", "skill": "HABILIDADES", "lang": "IDIOMAS"},
+    "pt": {"exp": "EXPERIÊNCIA PROFISSIONAL", "edu": "EDUCAÇÃO", "skill": "HABILIDADES", "lang": "IDIOMAS"}
 }
 
-# --- 5. FUNZIONI HELPER ---
-def set_table_background(cell, color_hex):
-    shading_elm = parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), color_hex))
-    cell._tc.get_or_add_tcPr().append(shading_elm)
+TRANSLATIONS = {
+    "Italiano": {
+        "title": "Global Career Coach 🚀",
+        "tab_cv": "📄 Generazione Documenti",
+        "tab_jobs": "🌍 Ricerca Lavoro (Live)",
+        "lbl_role": "Ruolo desiderato",
+        "lbl_loc": "Dove?",
+        "lbl_rad": "Raggio (km)",
+        "btn_search": "Cerca Offerte Reali",
+        "no_res": "Nessuna offerta trovata. Prova a cambiare parametri.",
+        "cv_up": "Carica CV (PDF)",
+        "job_desc": "Incolla Annuncio (Opzionale per CV, Obbligatorio per Lettera)",
+        "gen_btn": "Genera CV e Lettera",
+        "photo_up": "Foto Profilo",
+        "border": "Bordo Foto",
+        "dl_cv": "Scarica CV (.docx)",
+        "dl_let": "Scarica Lettera (.docx)",
+        "wait": "Analisi e Scrittura con Gemini 3 Pro...",
+        "success": "Documenti pronti!",
+        "apply": "Candidati Ora 🚀"
+    },
+    "English": {
+        "title": "Global Career Coach 🚀",
+        "tab_cv": "📄 Document Generation",
+        "tab_jobs": "🌍 Job Search (Live)",
+        "lbl_role": "Job Title",
+        "lbl_loc": "Location",
+        "lbl_rad": "Radius (km)",
+        "btn_search": "Search Real Jobs",
+        "no_res": "No jobs found. Try adjusting parameters.",
+        "cv_up": "Upload CV (PDF)",
+        "job_desc": "Paste Job Ad (Optional for CV, Required for Letter)",
+        "gen_btn": "Generate CV & Letter",
+        "photo_up": "Profile Photo",
+        "border": "Photo Border",
+        "dl_cv": "Download CV (.docx)",
+        "dl_let": "Download Letter (.docx)",
+        "wait": "Analyzing and Writing with Gemini 3 Pro...",
+        "success": "Documents ready!",
+        "apply": "Apply Now 🚀"
+    },
+    # Aggiungere altre lingue se necessario (Deutsch, Español, Português mappati su Inglese per brevità in questo snippet)
+    "Deutsch": {"title": "Global Career Coach", "tab_cv": "Dokumente", "tab_jobs": "Jobsuche", "lbl_role": "Position", "lbl_loc": "Ort", "lbl_rad": "Radius", "btn_search": "Suchen", "no_res": "Keine Ergebnisse", "cv_up": "CV hochladen", "job_desc": "Stellenanzeige", "gen_btn": "Generieren", "photo_up": "Foto", "border": "Rand", "dl_cv": "CV Laden", "dl_let": "Brief Laden", "wait": "Bitte warten...", "success": "Fertig!", "apply": "Bewerben"},
+    "Español": {"title": "Global Career Coach", "tab_cv": "Documentos", "tab_jobs": "Buscar Empleo", "lbl_role": "Puesto", "lbl_loc": "Ubicación", "lbl_rad": "Radio", "btn_search": "Buscar", "no_res": "Sin resultados", "cv_up": "Subir CV", "job_desc": "Oferta", "gen_btn": "Generar", "photo_up": "Foto", "border": "Borde", "dl_cv": "Descargar CV", "dl_let": "Descargar Carta", "wait": "Espere...", "success": "Hecho!", "apply": "Aplicar"},
+    "Português": {"title": "Global Career Coach", "tab_cv": "Documentos", "tab_jobs": "Buscar Vagas", "lbl_role": "Cargo", "lbl_loc": "Localização", "lbl_rad": "Raio", "btn_search": "Buscar", "no_res": "Sem resultados", "cv_up": "Enviar CV", "job_desc": "Anúncio", "gen_btn": "Gerar", "photo_up": "Foto", "border": "Borda", "dl_cv": "Baixar CV", "dl_let": "Baixar Carta", "wait": "Aguarde...", "success": "Pronto!", "apply": "Candidatar-se"}
+}
+
+# -----------------------------------------------------------------------------
+# 5. FUNZIONI HELPER
+# -----------------------------------------------------------------------------
+
+def get_todays_date(lang):
+    now = datetime.datetime.now()
+    if lang == "de": return now.strftime("%d.%m.%Y")
+    if lang in ["en"]: return now.strftime("%B %d, %Y")
+    return now.strftime("%d/%m/%Y")
+
+def extract_text_from_pdf(uploaded_file):
+    try:
+        reader = pypdf.PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text
+    except:
+        return ""
+
+def process_image(uploaded_img, border_size):
+    """Ritaglia la foto a cerchio e aggiunge bordo."""
+    try:
+        img = Image.open(uploaded_img).convert("RGBA")
+        
+        # Ritaglio circolare
+        size = (min(img.size), min(img.size))
+        mask = Image.new('L', size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0) + size, fill=255)
+        
+        output = ImageOps.fit(img, size, centering=(0.5, 0.5))
+        output.putalpha(mask)
+        
+        # Aggiunta bordo se > 0
+        if border_size > 0:
+            final_size = (size[0] + border_size * 2, size[1] + border_size * 2)
+            bg = Image.new('RGBA', final_size, (0,0,0,0)) # Trasparente
+            
+            # Disegna cerchio bordo (bianco o colorato, qui usiamo bianco per contrasto su blu)
+            draw_bg = ImageDraw.Draw(bg)
+            draw_bg.ellipse((0, 0) + final_size, fill=(255,255,255,255))
+            
+            # Incolla foto al centro
+            bg.paste(output, (border_size, border_size), output)
+            return bg
+        else:
+            return output
+    except:
+        return None
+
+# --- Word XML Helpers ---
+def set_table_background(table, color_hex):
+    """Imposta il colore di sfondo per l'intera tabella (o celle specifiche)."""
+    # In questo caso coloriamo tutte le celle della prima riga
+    for cell in table.rows[0].cells:
+        tcPr = cell._tc.get_or_add_tcPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), color_hex)
+        tcPr.append(shd)
 
 def add_bottom_border(paragraph):
-    pPr = paragraph._p.get_or_add_pPr()
-    pBdr = parse_xml(r'<w:pBdr {}><w:bottom w:val="single" w:sz="6" w:space="1" w:color="20547D"/></w:pBdr>'.format(nsdecls('w')))
-    pPr.append(pBdr)
+    """Aggiunge una linea nera sottile sotto il paragrafo."""
+    p = paragraph._p
+    pPr = p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6') # 1/8 pt
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '000000')
+    pbdr.append(bottom)
+    pPr.append(pbdr)
 
-def process_image(image_file, border_width):
-    if image_file is None: return None
-    image = Image.open(image_file)
-    if border_width > 0:
-        image = ImageOps.expand(image, border=border_width, fill='white')
-    return image
+# -----------------------------------------------------------------------------
+# 6. FUNZIONE SEARCH JOBS (SERPAPI MASTER)
+# -----------------------------------------------------------------------------
+def search_jobs_master(role, location, radius, lang_ui):
+    """
+    Cerca lavori usando SerpApi e estrae i link di candidatura REALI.
+    """
+    serp_key = st.secrets.get("SERPAPI_API_KEY")
+    if not serp_key:
+        return {"error": "Chiave SerpApi mancante nei Secrets."}
 
-def get_todays_date(lang_code):
-    now = datetime.now()
-    if lang_code in ['de_ch', 'de_de', 'it', 'fr', 'es', 'pt']:
-        return now.strftime("%d.%m.%Y")
-    return now.strftime("%B %d, %Y")
+    params = {
+        "engine": "google_jobs",
+        "q": f"{role} {location}",
+        "hl": LANG_DISPLAY.get(lang_ui, "it"), # Lingua interfaccia Google
+        "gl": "ch", # Geolocalizzazione base (Svizzera come default o dinamico)
+        "radius": radius,
+        "api_key": serp_key
+    }
 
-def extract_text_from_pdf(pdf_file):
-    pdf_reader = pypdf.PdfReader(pdf_file)
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text()
-    return text
+    try:
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        jobs_data = []
+        if "jobs_results" in results:
+            for job in results["jobs_results"]:
+                # --- LOGICA ESTRAZIONE LINK DIRETTO ---
+                link = ""
+                apply_options = job.get("apply_options", [])
+                
+                if apply_options:
+                    # Prende il primo link disponibile (solitamente il più diretto)
+                    link = apply_options[0].get("link")
+                else:
+                    # Fallback sul link di condivisione se non ci sono opzioni
+                    link = job.get("share_link", "#")
 
-# --- 6. FUNZIONE CV (LAYOUT BLU CONGELATO) ---
-def create_cv_docx(json_data, pil_image, lang_code):
+                jobs_data.append({
+                    "title": job.get("title", "N/A"),
+                    "company": job.get("company_name", "N/A"),
+                    "location": job.get("location", ""),
+                    "description": job.get("description", "")[:200] + "...",
+                    "link": link, # Link pulito
+                    "platform": apply_options[0].get("title") if apply_options else "Google Jobs"
+                })
+        
+        return jobs_data
+
+    except Exception as e:
+        return {"error": str(e)}
+
+# -----------------------------------------------------------------------------
+# 7. FUNZIONI GENERAZIONE DOCUMENTI (WORD)
+# -----------------------------------------------------------------------------
+
+def create_cv_docx(data, photo_img):
     doc = Document()
     
-    # Header Table Blu
+    # Margini
+    section = doc.sections[0]
+    section.top_margin = Cm(1.0)
+    section.left_margin = Cm(1.5)
+    section.right_margin = Cm(1.5)
+
+    # --- BANNER BLU (Tabella 1x2) ---
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    table.columns[0].width = Inches(1.2)
-    table.columns[1].width = Inches(6.1)
+    table.columns[0].width = Cm(4.5) # Colonna Foto
+    table.columns[1].width = Cm(12.5) # Colonna Testo
     
-    row = table.rows[0]
-    row.height = Inches(2.0)
-    row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
-    
-    set_table_background(row.cells[0], "20547D")
-    set_table_background(row.cells[1], "20547D")
-    
-    # Foto (Sx)
-    cell_foto = row.cells[0]
-    cell_foto.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    if pil_image:
-        img_s = io.BytesIO()
-        pil_image.save(img_s, format='PNG')
-        img_s.seek(0)
-        p = cell_foto.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(0)
-        p.paragraph_format.line_spacing = 1.0
+    set_table_background(table, "20547D") # Blu richiesto
+
+    # Cella 0: Foto
+    cell_img = table.cell(0, 0)
+    cell_img.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    if photo_img:
+        p = cell_img.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(img_s, height=Inches(1.5))
-        
-    # Testo Dati Personali (Dx)
-    cell_text = row.cells[1]
-    cell_text.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    p_name = cell_text.paragraphs[0]
-    p_name.paragraph_format.space_before = Pt(0)
-    p_name.paragraph_format.space_after = Pt(0)
-    p_name.paragraph_format.line_spacing = 1.0
-    run_name = p_name.add_run(json_data['personal_info'].get('name', ''))
-    run_name.font.color.rgb = RGBColor(255, 255, 255)
-    run_name.font.size = Pt(24)
-    run_name.bold = True
+        img_byte = io.BytesIO()
+        photo_img.save(img_byte, format="PNG")
+        run.add_picture(img_byte, width=Cm(3.5))
     
-    p_info = cell_text.add_paragraph()
-    p_info.paragraph_format.space_before = Pt(0)
-    info = f"{json_data['personal_info'].get('address','')} | {json_data['personal_info'].get('phone','')} | {json_data['personal_info'].get('email','')}"
-    run_info = p_info.add_run(info)
-    run_info.font.color.rgb = RGBColor(255, 255, 255)
+    # Cella 1: Testo
+    cell_txt = table.cell(0, 1)
+    cell_txt.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     
-    doc.add_paragraph("")
+    # Nome
+    p1 = cell_txt.paragraphs[0]
+    run1 = p1.add_run(f"{data.get('nome', '')}\n")
+    run1.font.size = Pt(24)
+    run1.font.color.rgb = RGBColor(255, 255, 255)
+    run1.bold = True
     
-    titles = SECTION_TITLES.get(lang_code, SECTION_TITLES['en_us'])
-    
+    # Dati
+    info_text = f"{data.get('indirizzo','')}\n{data.get('telefono','')} | {data.get('email','')}"
+    p2 = cell_txt.add_paragraph(info_text)
+    run2 = p2.runs[0]
+    run2.font.size = Pt(10)
+    run2.font.color.rgb = RGBColor(230, 230, 230)
+
+    # Spazio dopo banner
+    doc.add_paragraph().space_after = Pt(12)
+
+    # --- CORPO DEL CV ---
     # Profilo
-    if 'profile_summary' in json_data['cv_sections']:
-        h = doc.add_paragraph(titles['profile_summary'])
-        h.style = 'Heading 2'
+    if data.get('profilo'):
+        h = doc.add_paragraph("PROFILO")
         add_bottom_border(h)
-        run_h = h.runs[0]
-        run_h.font.color.rgb = RGBColor(32, 84, 125)
-        run_h.font.bold = True
-        doc.add_paragraph(json_data['cv_sections']['profile_summary'].replace('**', ''))
-        doc.add_paragraph("")
+        h.runs[0].bold = True
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
+        doc.add_paragraph(data['profilo']).space_after = Pt(12)
 
-    # Sezioni Esperienza e Altro
-    sections = ['experience', 'education', 'skills', 'languages', 'interests']
-    for key in sections:
-        if key in json_data['cv_sections'] and json_data['cv_sections'][key]:
-            h = doc.add_paragraph(titles[key])
-            h.style = 'Heading 2'
-            add_bottom_border(h)
-            run_h = h.runs[0]
-            run_h.font.color.rgb = RGBColor(32, 84, 125)
-            run_h.font.bold = True
-            
-            items = json_data['cv_sections'][key]
-            if isinstance(items, list):
-                for item in items:
-                    p = doc.add_paragraph(item.replace('**', ''), style='List Bullet')
-                    # Spaziatura solo per sezioni dense
-                    if key in ['experience', 'education']:
-                        doc.add_paragraph("")
-            else:
-                doc.add_paragraph(str(items).replace('**', ''))
-                doc.add_paragraph("")
-    
-    bio = io.BytesIO()
-    doc.save(bio)
-    return bio
+    # Esperienza
+    if data.get('esperienze'):
+        h = doc.add_paragraph("ESPERIENZA PROFESSIONALE")
+        add_bottom_border(h)
+        h.runs[0].bold = True
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
+        for exp in data['esperienze']:
+            p = doc.add_paragraph()
+            r_tit = p.add_run(f"{exp.get('titolo','')} - {exp.get('azienda','')}")
+            r_tit.bold = True
+            p.add_run(f"\n{exp.get('date','')}\n{exp.get('descrizione','')}")
+            doc.add_paragraph("") # Spazio vuoto
 
-# --- 7. FUNZIONE LETTERA ---
-def create_letter_docx(letter_data, personal_info, lang_code):
+    # Istruzione
+    if data.get('istruzione'):
+        h = doc.add_paragraph("ISTRUZIONE")
+        add_bottom_border(h)
+        h.runs[0].bold = True
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
+        for edu in data['istruzione']:
+            p = doc.add_paragraph()
+            r_tit = p.add_run(f"{edu.get('titolo','')}")
+            r_tit.bold = True
+            p.add_run(f"\n{edu.get('istituto','')}, {edu.get('date','')}")
+            doc.add_paragraph("")
+
+    # Skills
+    if data.get('skills'):
+        h = doc.add_paragraph("COMPETENZE")
+        add_bottom_border(h)
+        h.runs[0].bold = True
+        h.runs[0].font.color.rgb = RGBColor(32, 84, 125)
+        doc.add_paragraph(", ".join(data['skills']))
+
+    return doc
+
+def create_letter_docx(data, lang):
     doc = Document()
-    p = doc.add_paragraph()
-    p.add_run(f"{personal_info.get('name')}\n{personal_info.get('address')}\n{personal_info.get('phone')}\n{personal_info.get('email')}")
-    doc.add_paragraph("")
-    
-    p_date = doc.add_paragraph(get_todays_date(lang_code))
-    p_date.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    doc.add_paragraph("")
-    
-    doc.add_paragraph(letter_data.get('recipient_block', 'Recipient'))
-    doc.add_paragraph("")
-    
-    p_subj = doc.add_paragraph(letter_data.get('subject_line', 'Subject'))
-    p_subj.runs[0].bold = True
-    p_subj.runs[0].font.size = Pt(14)
-    doc.add_paragraph("")
-    
-    doc.add_paragraph(letter_data.get('body_content', 'Body'))
-    doc.add_paragraph("")
-    
-    closing = letter_data.get('closing', 'Best regards').replace(personal_info.get('name', ''), '').strip()
-    p_close = doc.add_paragraph(closing)
-    p_close.paragraph_format.keep_with_next = True
-    for _ in range(4): doc.add_paragraph("")
-    doc.add_paragraph(personal_info.get('name', ''))
-    
-    bio = io.BytesIO()
-    doc.save(bio)
-    return bio
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
 
-# --- 8. FUNZIONE JOB SEARCH (SERPAPI + FALLBACK) ---
-def search_jobs_master(role, loc, rad, lang):
-    # PIANO A: SERPAPI
-    if "SERPAPI_API_KEY" in st.secrets and GoogleSearch:
-        try:
-            params = {
-                "engine": "google_jobs",
-                "q": f"{role} {loc}",
-                "hl": lang,
-                "radius": rad,
-                "api_key": st.secrets["SERPAPI_API_KEY"]
-            }
-            search = GoogleSearch(params)
-            results = search.get_dict().get("jobs_results", [])
-            final_res = []
-            for job in results[:5]:
-                link = job.get('share_link') or job.get('apply_options', [{}])[0].get('link')
-                if not link:
-                    q_safe = urllib.parse.quote(f"{job.get('title')} {job.get('company_name')} jobs")
-                    link = f"https://www.google.com/search?q={q_safe}&ibp=htl;jobs"
-                
-                final_res.append({
-                    "company": job.get("company_name", "N/A"),
-                    "role_title": job.get("title", role),
-                    "link": link
-                })
-            if final_res: return final_res
-        except Exception:
-            pass 
+    # Mittente
+    doc.add_paragraph(f"{data.get('nome','')}\n{data.get('email','')}\n{data.get('telefono','')}")
+    doc.add_paragraph("")
+    
+    # Data
+    doc.add_paragraph(get_todays_date(LANG_DISPLAY[lang]))
+    doc.add_paragraph("")
+    
+    # Oggetto
+    p_obj = doc.add_paragraph(f"Oggetto: Candidatura per {data.get('ruolo_target','Posizione')}")
+    p_obj.runs[0].bold = True
+    doc.add_paragraph("")
+    
+    # Corpo
+    doc.add_paragraph(data.get('lettera_corpo', ''))
+    
+    # Saluti e Firma
+    doc.add_paragraph("\nCordiali saluti,\n\n\n") # Spazio firma
+    doc.add_paragraph(data.get('nome',''))
+    
+    return doc
 
-    # PIANO B: GEMINI SMART LINK
+# -----------------------------------------------------------------------------
+# 8. LOGICA AI (GEMINI 3 PRO PREVIEW)
+# -----------------------------------------------------------------------------
+def generate_docs_ai(cv_text, job_desc, lang):
+    gemini_key = st.secrets.get("GEMINI_API_KEY")
+    if not gemini_key: return None
+
+    genai.configure(api_key=gemini_key)
+    # MODELLO SPECIFICO RICHIESTO
+    model = genai.GenerativeModel("models/gemini-3-pro-preview")
+
+    # Prompt JSON Strutturato
+    prompt = f"""
+    Sei un Career Coach esperto. Analizza il CV e l'Annuncio.
+    Lingua Output: {lang}.
+    
+    INPUT CV: {cv_text[:3000]}...
+    INPUT JOB: {job_desc}
+    
+    RESTITUISCI SOLO UN JSON (no markdown) con questa struttura esatta:
+    {{
+        "nome": "Nome Cognome",
+        "indirizzo": "Città, Paese",
+        "telefono": "+...",
+        "email": "...",
+        "profilo": "Breve riassunto professionale...",
+        "ruolo_target": "Titolo del lavoro dell'annuncio",
+        "esperienze": [
+            {{"titolo": "...", "azienda": "...", "date": "...", "descrizione": "Punti elenco..."}}
+        ],
+        "istruzione": [
+            {{"titolo": "...", "istituto": "...", "date": "..."}}
+        ],
+        "skills": ["Skill1", "Skill2"],
+        "lettera_corpo": "Testo completo della lettera di presentazione, diviso in paragrafi, convincente e mirata."
+    }}
+    """
+    
     try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel("models/gemini-2.0-flash")
-        prompt = f"List 5 companies in '{loc}' hiring for '{role}'. JSON: [{{'company': 'Name', 'role_title': 'Title'}}]."
-        resp = model.generate_content(prompt)
-        data = json.loads(resp.text.replace("```json", "").replace("```", ""))
-        for item in data:
-            q = f'"{item["role_title"]}" "{item["company"]}" "{loc}" jobs'
-            item['link'] = f"https://www.google.com/search?q={urllib.parse.quote(q)}"
-        return data
-    except:
-        return []
-
-# --- 9. GENERAZIONE TESTI AI ---
-def get_gemini_response(pdf_text, job_text, lang_code):
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel("models/gemini-3-pro-preview")
-        prompt = f"HR Expert. Create CV/Letter in {lang_code}. JSON Keys: personal_info, cv_sections (profile_summary, experience, education, skills, languages, interests), letter_data. NO AI MENTION."
-        response = model.generate_content([prompt, pdf_text, job_text])
-        return response.text
+        response = model.generate_content(prompt)
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text)
     except Exception as e:
-        return str(e)
+        st.error(f"Errore AI: {e}")
+        return None
 
-# --- 10. MAIN APP LOOP ---
-with st.sidebar:
-    lang_names = list(LANG_DISPLAY.keys())
-    curr_code = st.session_state['lang_code']
-    try:
-        idx = list(LANG_DISPLAY.values()).index(curr_code)
-    except:
-        idx = 0
-    
-    t_temp = TRANSLATIONS.get(curr_code, TRANSLATIONS['it'])
-    lang_label = t_temp.get('lang_label', 'Lingua')
-    
-    selected_name = st.selectbox(lang_label, lang_names, index=idx)
-    st.session_state['lang_code'] = LANG_DISPLAY[selected_name]
-    t = TRANSLATIONS[st.session_state['lang_code']]
-    
-    st.title(t['sidebar_title'])
-    up_photo = st.file_uploader(t['photo_label'], type=['jpg','png'])
-    border = st.slider(t['border_label'], 0, 50, 5)
-    st.session_state['processed_photo'] = process_image(up_photo, border)
-    if st.session_state['processed_photo']:
-        st.image(st.session_state['processed_photo'], caption=t['preview_label'])
+# -----------------------------------------------------------------------------
+# 9. MAIN UI LOOP
+# -----------------------------------------------------------------------------
+def main():
+    t_code = st.session_state.lang_code
+    t = TRANSLATIONS[t_code]
+
+    # --- SIDEBAR ---
+    with st.sidebar:
+        st.header("⚙️ Config")
+        st.session_state.lang_code = st.selectbox("Lingua", list(TRANSLATIONS.keys()))
         
-    st.divider()
-    st.subheader(t['search_sec_title'])
-    role = st.text_input(t['search_role'])
-    loc = st.text_input(t['search_loc'])
-    rad = st.slider(t['search_rad'], 0, 100, 20)
-    
-    if st.button(t['search_btn']):
-        st.session_state['job_search_results'] = search_jobs_master(role, loc, rad, st.session_state['lang_code'])
-
-# Main
-t = TRANSLATIONS[st.session_state['lang_code']]
-st.title(t['main_title'])
-
-if st.session_state['job_search_results']:
-    st.success(t['search_res_title'])
-    st.info(t['search_info'])
-    for job in st.session_state['job_search_results']:
-        st.markdown(f"**{job['role_title']}** @ {job['company']}")
-        st.markdown(f"[👉 Link]({job['link']})")
         st.divider()
+        st.subheader(t["photo_up"])
+        uploaded_img = st.file_uploader("Foto", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+        border_size = st.slider(t["border"], 0, 20, 5)
+        
+        if uploaded_img:
+            proc_img = process_image(uploaded_img, border_size)
+            st.session_state.processed_photo = proc_img
+            st.image(proc_img, width=150)
 
-st.subheader(t['step1_title'])
-pdf_file = st.file_uploader(t['step1_title'], type=['pdf'], label_visibility='collapsed', key='main_pdf', help=t['upload_help'])
-if pdf_file: st.session_state['pdf_ref'] = pdf_file
+    # --- HEADER ---
+    st.title(t["title"])
 
-st.subheader(t['step2_title'])
-job_desc = st.text_area("job", placeholder=t['job_placeholder'], height=200, label_visibility="collapsed")
+    # --- TABS ---
+    tab1, tab2 = st.tabs([t["tab_cv"], t["tab_jobs"]])
 
-if st.button(t['btn_label']):
-    if pdf_file and job_desc:
-        with st.spinner(t['spinner_msg']):
-            pdf_txt = extract_text_from_pdf(pdf_file)
-            json_res = get_gemini_response(pdf_txt, job_desc, st.session_state['lang_code'])
-            json_res = json_res.replace("```json", "").replace("```", "")
-            try:
-                data = json.loads(json_res)
-                st.session_state['generated_data'] = data
-                st.success(t['success'])
-            except:
-                st.error(t['error'])
-    else:
-        st.warning(t['upload_first'])
+    # *** TAB 1: GENERATORE ***
+    with tab1:
+        col_up, col_txt = st.columns([1, 1])
+        with col_up:
+            f_pdf = st.file_uploader(t["cv_up"], type=["pdf"])
+        with col_txt:
+            job_txt = st.text_area(t["job_desc"], height=150)
 
-if st.session_state['generated_data']:
-    d = st.session_state['generated_data']
-    t1, t2 = st.tabs([t['tab_cv'], t['tab_letter']])
-    with t1:
-        doc = create_cv_docx(d, st.session_state['processed_photo'], st.session_state['lang_code'])
-        st.download_button(t['down_cv'], doc.getvalue(), "CV.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    with t2:
-        doc = create_letter_docx(d['letter_data'], d['personal_info'], st.session_state['lang_code'])
-        st.download_button(t['down_let'], doc.getvalue(), "Letter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        if st.button(t["gen_btn"], type="primary"):
+            if not f_pdf:
+                st.error("Manca il PDF del CV.")
+            else:
+                with st.spinner(t["wait"]):
+                    cv_text = extract_text_from_pdf(f_pdf)
+                    # Chiamata AI
+                    data = generate_docs_ai(cv_text, job_txt, t_code)
+                    
+                    if data:
+                        st.session_state.generated_data = data
+                        st.success(t["success"])
+        
+        # Download Area
+        if st.session_state.generated_data:
+            st.divider()
+            col_d1, col_d2 = st.columns(2)
+            
+            # Crea DOCX CV
+            docx_cv = create_cv_docx(st.session_state.generated_data, st.session_state.processed_photo)
+            bio_cv = io.BytesIO()
+            docx_cv.save(bio_cv)
+            
+            # Crea DOCX Lettera
+            docx_let = create_letter_docx(st.session_state.generated_data, t_code)
+            bio_let = io.BytesIO()
+            docx_let.save(bio_let)
+            
+            with col_d1:
+                st.download_button(
+                    label=t["dl_cv"],
+                    data=bio_cv.getvalue(),
+                    file_name="CV_Optimized.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+            with col_d2:
+                st.download_button(
+                    label=t["dl_let"],
+                    data=bio_let.getvalue(),
+                    file_name="Cover_Letter.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+    # *** TAB 2: JOB SEARCH (SERPAPI) ***
+    with tab2:
+        c1, c2, c3 = st.columns([2, 2, 1])
+        role = c1.text_input(t["lbl_role"])
+        loc = c2.text_input(t["lbl_loc"], value="Zurich, CH")
+        rad = c3.number_input(t["lbl_rad"], value=20)
+        
+        if st.button(t["btn_search"]):
+            with st.spinner("Searching..."):
+                results = search_jobs_master(role, loc, rad, LANG_DISPLAY[t_code])
+                st.session_state.job_search_results = results
+
+        # Visualizzazione Risultati
+        res = st.session_state.job_search_results
+        if res:
+            if isinstance(res, dict) and "error" in res:
+                st.error(f"Errore SerpApi: {res['error']}")
+            elif len(res) == 0:
+                st.info(t["no_res"])
+            else:
+                for job in res:
+                    # Card Layout
+                    st.markdown(f"""
+                    <div class="job-card">
+                        <div class="job-title">{job['title']}</div>
+                        <div class="job-company">{job['company']} - {job['location']}</div>
+                        <div style="font-size:12px; color:#777; margin-bottom:10px;">
+                            Fonte: {job['platform']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    # Link diretto
+                    st.link_button(t["apply"], job['link'])
+
+if __name__ == "__main__":
+    main()
