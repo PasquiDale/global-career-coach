@@ -327,8 +327,8 @@ if st.button(t['btn_label']):
                 data = json.loads(json_res)
                 st.session_state['generated_data'] = data
                 st.success(t['success'])
-            except:
-                st.error(t['error'])
+            except Exception as e:
+                st.error(f"L'errore VERO è: {e}")
     else:
         st.warning(t['upload_first'])
 
