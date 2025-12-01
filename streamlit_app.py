@@ -8,12 +8,12 @@ from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
 import io
 from PIL import Image, ImageOps
-import PyPDF2
+import pypdf  # NUOVA LIBRERIA (Sostituisce PyPDF2)
 from datetime import datetime
 import json
 import urllib.parse
 
-# Gestione import opzionale per SerpApi (evita crash se manca la lib)
+# Gestione import opzionale per SerpApi
 try:
     from serpapi import GoogleSearch
 except ImportError:
@@ -171,7 +171,7 @@ def get_todays_date(lang_code):
     return now.strftime("%B %d, %Y")
 
 def extract_text_from_pdf(pdf_file):
-    pdf_reader = PyPDF2.PdfReader(pdf_file)
+    pdf_reader = pypdf.PdfReader(pdf_file)
     text = ""
     for page in pdf_reader.pages:
         text += page.extract_text()
@@ -268,7 +268,7 @@ def create_cv_docx(json_data, pil_image, lang_code):
     doc.save(bio)
     return bio
 
-# --- 7. FUNZIONE LETTERA (LAYOUT STANDARD) ---
+# --- 7. FUNZIONE LETTERA ---
 def create_letter_docx(letter_data, personal_info, lang_code):
     doc = Document()
     p = doc.add_paragraph()
@@ -300,9 +300,9 @@ def create_letter_docx(letter_data, personal_info, lang_code):
     doc.save(bio)
     return bio
 
-# --- 8. FUNZIONE JOB SEARCH (SERPAPI + FALLBACK GEMINI) ---
+# --- 8. FUNZIONE JOB SEARCH (SERPAPI + FALLBACK) ---
 def search_jobs_master(role, loc, rad, lang):
-    # PIANO A: SERPAPI (Google Jobs Reale)
+    # PIANO A: SERPAPI
     if "SERPAPI_API_KEY" in st.secrets and GoogleSearch:
         try:
             params = {
@@ -318,7 +318,6 @@ def search_jobs_master(role, loc, rad, lang):
             for job in results[:5]:
                 link = job.get('share_link') or job.get('apply_options', [{}])[0].get('link')
                 if not link:
-                    # Se non c'è link diretto, creiamo una ricerca Google
                     q_safe = urllib.parse.quote(f"{job.get('title')} {job.get('company_name')} jobs")
                     link = f"https://www.google.com/search?q={q_safe}&ibp=htl;jobs"
                 
@@ -328,31 +327,27 @@ def search_jobs_master(role, loc, rad, lang):
                     "link": link
                 })
             if final_res: return final_res
-        except Exception as e:
-            # Fallback silenzioso
+        except Exception:
             pass 
 
-    # PIANO B: GEMINI SMART LINK (Fallback)
+    # PIANO B: GEMINI SMART LINK
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel("models/gemini-2.0-flash")
-        prompt = f"List 5 companies in '{loc}' hiring for '{role}'. JSON Format: [{{'company': 'Name', 'role_title': 'Title'}}]. Only JSON."
+        prompt = f"List 5 companies in '{loc}' hiring for '{role}'. JSON: [{{'company': 'Name', 'role_title': 'Title'}}]."
         resp = model.generate_content(prompt)
-        # Pulizia JSON grezza
-        json_text = resp.text.replace("```json", "").replace("```", "").strip()
-        data = json.loads(json_text)
+        data = json.loads(resp.text.replace("```json", "").replace("```", ""))
         for item in data:
             q = f'"{item["role_title"]}" "{item["company"]}" "{loc}" jobs'
             item['link'] = f"https://www.google.com/search?q={urllib.parse.quote(q)}"
         return data
-    except Exception:
+    except:
         return []
 
 # --- 9. GENERAZIONE TESTI AI ---
 def get_gemini_response(pdf_text, job_text, lang_code):
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Modello principale
         model = genai.GenerativeModel("models/gemini-3-pro-preview")
         prompt = f"HR Expert. Create CV/Letter in {lang_code}. JSON Keys: personal_info, cv_sections (profile_summary, experience, education, skills, languages, interests), letter_data. NO AI MENTION."
         response = model.generate_content([prompt, pdf_text, job_text])
@@ -360,7 +355,7 @@ def get_gemini_response(pdf_text, job_text, lang_code):
     except Exception as e:
         return str(e)
 
-# --- 10. MAIN APP LOOP (UI) ---
+# --- 10. MAIN APP LOOP ---
 with st.sidebar:
     lang_names = list(LANG_DISPLAY.keys())
     curr_code = st.session_state['lang_code']
@@ -369,15 +364,14 @@ with st.sidebar:
     except:
         idx = 0
     
-    # Selezione Lingua
     t_temp = TRANSLATIONS.get(curr_code, TRANSLATIONS['it'])
-    selected_name = st.selectbox(t_temp.get('lang_label', 'Lingua'), lang_names, index=idx)
+    lang_label = t_temp.get('lang_label', 'Lingua')
+    
+    selected_name = st.selectbox(lang_label, lang_names, index=idx)
     st.session_state['lang_code'] = LANG_DISPLAY[selected_name]
     t = TRANSLATIONS[st.session_state['lang_code']]
     
     st.title(t['sidebar_title'])
-    
-    # Gestione Foto
     up_photo = st.file_uploader(t['photo_label'], type=['jpg','png'])
     border = st.slider(t['border_label'], 0, 50, 5)
     st.session_state['processed_photo'] = process_image(up_photo, border)
@@ -385,43 +379,33 @@ with st.sidebar:
         st.image(st.session_state['processed_photo'], caption=t['preview_label'])
         
     st.divider()
-    
-    # Sezione Ricerca Lavoro (Sidebar)
     st.subheader(t['search_sec_title'])
     role = st.text_input(t['search_role'])
     loc = st.text_input(t['search_loc'])
     rad = st.slider(t['search_rad'], 0, 100, 20)
     
     if st.button(t['search_btn']):
-        # La ricerca lavoro è indipendente dal CV caricato per la UX, ma utile se c'è
         st.session_state['job_search_results'] = search_jobs_master(role, loc, rad, st.session_state['lang_code'])
 
-# Contenuto Principale
+# Main
 t = TRANSLATIONS[st.session_state['lang_code']]
 st.title(t['main_title'])
 
-# Risultati Ricerca Lavoro (Se presenti)
 if st.session_state['job_search_results']:
     st.success(t['search_res_title'])
     st.info(t['search_info'])
     for job in st.session_state['job_search_results']:
-        col_res1, col_res2 = st.columns([3, 1])
-        with col_res1:
-            st.markdown(f"**{job['role_title']}** @ {job['company']}")
-        with col_res2:
-            st.markdown(f"[👉 Link]({job['link']})")
+        st.markdown(f"**{job['role_title']}** @ {job['company']}")
+        st.markdown(f"[👉 Link]({job['link']})")
         st.divider()
 
-# Input PDF
 st.subheader(t['step1_title'])
 pdf_file = st.file_uploader(t['step1_title'], type=['pdf'], label_visibility='collapsed', key='main_pdf', help=t['upload_help'])
 if pdf_file: st.session_state['pdf_ref'] = pdf_file
 
-# Input Job Description
 st.subheader(t['step2_title'])
 job_desc = st.text_area("job", placeholder=t['job_placeholder'], height=200, label_visibility="collapsed")
 
-# Bottone Generazione
 if st.button(t['btn_label']):
     if pdf_file and job_desc:
         with st.spinner(t['spinner_msg']):
@@ -437,15 +421,12 @@ if st.button(t['btn_label']):
     else:
         st.warning(t['upload_first'])
 
-# Download Area
 if st.session_state['generated_data']:
     d = st.session_state['generated_data']
     t1, t2 = st.tabs([t['tab_cv'], t['tab_letter']])
-    
     with t1:
         doc = create_cv_docx(d, st.session_state['processed_photo'], st.session_state['lang_code'])
         st.download_button(t['down_cv'], doc.getvalue(), "CV.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        
     with t2:
         doc = create_letter_docx(d['letter_data'], d['personal_info'], st.session_state['lang_code'])
         st.download_button(t['down_let'], doc.getvalue(), "Letter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
